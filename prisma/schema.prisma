@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Creator {
+  id        String   @id @default(cuid())
+  mid       String   @unique
+  name      String
+  faceUrl   String?
+  videos    Video[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+}
+
+model Video {
+  id             String   @id @default(cuid())
+  bvid           String   @unique
+  aid            String?
+  title          String
+  cleanTitle     String
+  description    String?  @db.Text
+  coverUrl       String?
+  durationSeconds Int
+  durationLabel  String?
+  publishAt      DateTime
+  typeName       String?
+  tags           Json?
+  sourceKeywords Json?
+  subtitle       String?  @db.LongText
+  hasSubtitle    Boolean  @default(false)
+  play           Int      @default(0)
+  like           Int      @default(0)
+  favorite       Int      @default(0)
+  share          Int      @default(0)
+  reply          Int      @default(0)
+  engagementRate Float    @default(0)
+  creatorId      String
+  creator        Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  rawSearch      Json?
+  rawInfo        Json?
+  firstSeenAt    DateTime @default(now())
+  lastSyncedAt   DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([publishAt(sort: Desc)])
+  @@index([play(sort: Desc)])
+  @@index([creatorId, publishAt(sort: Desc)])
+  @@index([typeName])
+}
+
+model SyncRun {
+  id           String   @id @default(cuid())
+  status       String
+  keywords     Json
+  pages        Int      @default(1)
+  pageSize     Int      @default(10)
+  fetchedCount Int      @default(0)
+  createdCount Int      @default(0)
+  updatedCount Int      @default(0)
+  subtitleCount Int     @default(0)
+  message      String?  @db.Text
+  startedAt    DateTime @default(now())
+  finishedAt   DateTime?
+
+  @@index([startedAt(sort: Desc)])
+  @@index([status])
+}
