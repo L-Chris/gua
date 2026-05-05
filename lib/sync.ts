@@ -9,6 +9,8 @@ import {
     searchVideos,
     stripHtml,
     type BilibiliSearchItem,
+    type BilibiliSearchResponse,
+    type BilibiliVideoInfo,
 } from "@/lib/bilibili";
 import {
     defaultSubtitleLimit,
@@ -18,6 +20,7 @@ import {
 } from "@/lib/config";
 import { formatDurationFromSeconds } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
+import { bilibiliQueue } from "@/lib/queue";
 
 export type SyncOptions = {
     keywords?: string[];
@@ -115,7 +118,9 @@ export async function syncVideoLibrary(
 
         for (const keyword of keywords) {
             for (let page = 1; page <= pages; page += 1) {
-                const response = await searchVideos(keyword, page, pageSize);
+                const response = (await bilibiliQueue.add(() =>
+                    searchVideos(keyword, page, pageSize),
+                )) as BilibiliSearchResponse;
                 fetchedCount += response.items.length;
 
                 for (const item of response.items) {
@@ -168,7 +173,9 @@ export async function syncVideoLibrary(
         let subtitleCount = 0;
 
         for (const [bvid, candidate] of candidates) {
-            const info = await getVideoInfo(bvid);
+            const info = (await bilibiliQueue.add(() =>
+                getVideoInfo(bvid),
+            )) as BilibiliVideoInfo;
             const ownerMid = String(
                 info.owner?.mid ?? candidate.item.mid ?? bvid,
             );
@@ -190,7 +197,9 @@ export async function syncVideoLibrary(
                 durationSeconds <= 15 * 60
             ) {
                 try {
-                    subtitle = await getVideoSubtitle(bvid);
+                    subtitle = (await bilibiliQueue.add(() =>
+                        getVideoSubtitle(bvid),
+                    )) as string | null;
                     if (subtitle) {
                         subtitleCount += 1;
                     }

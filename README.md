@@ -74,6 +74,17 @@
 - `BILIBILI_SYNC_PAGE_SIZE`：每页数量
 - `BILIBILI_SUBTITLE_LIMIT`：单次同步最多补抓多少条字幕
 
+## Docker 部署
+
+项目现在包含 `Dockerfile`，并已适配 `output: "standalone"` 的 Next.js 自托管方式。
+
+如果接入 `/home/base/docker-compose.yml`：
+
+- 服务名建议使用 `gua`
+- 容器内数据库地址应改为 `shared-mysql`
+- 容器内 B 站接口地址应改为 `http://bilibili-mcp:8001`
+- 首次部署前请确认 MySQL 中已存在 `gua` 数据库
+
 ## 后续可继续扩展
 
 - 给素材库加搜索、筛选、排序
