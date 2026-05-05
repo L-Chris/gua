@@ -78,12 +78,147 @@ function calculateEngagementRate(
     return total / Math.max(play, 1);
 }
 
-function chooseBetterCandidate(
-    current: BilibiliSearchItem,
-    next: BilibiliSearchItem,
-) {
-    return (next.play ?? 0) > (current.play ?? 0) ? next : current;
+function hasRequiredTag(tags: string[]) {
+    return tags.some((tag) => tag.includes("华强买瓜") || tag.includes("买瓜"));
 }
+
+function hasRequiredSyncTag(rawTag: string | undefined | null) {
+    return hasRequiredTag(normalizeTagList(rawTag));
+}
+
+
+
+async function syncCandidateVideo(bvid: string, candidate: CandidateVideo) {
+    const info = (await bilibiliQueue.add(() =>
+        getVideoInfo(bvid),
+    )) as BilibiliVideoInfo;
+    const existing = await prisma.video.findUnique({
+        where: { bvid },
+        select: {
+            bvid: true,
+            hasSubtitle: true,
+            sourceKeywords: true,
+            subtitle: true,
+            tags: true,
+        },
+    });
+    const ownerMid = String(info.owner?.mid ?? candidate.item.mid ?? bvid);
+    const ownerName =
+        info.owner?.name?.trim() || candidate.item.author?.trim() || "未知 UP";
+    const existingSubtitle = existing?.subtitle ?? null;
+    const durationSeconds =
+        info.duration && info.duration > 0
+            ? info.duration
+            : parseDurationToSeconds(candidate.item.duration);
+
+    const creator = await prisma.creator.upsert({
+        where: { mid: ownerMid },
+        update: {
+            faceUrl: normalizeImageUrl(info.owner?.face ?? candidate.item.upic),
+            name: ownerName,
+        },
+        create: {
+            faceUrl: normalizeImageUrl(info.owner?.face ?? candidate.item.upic),
+            mid: ownerMid,
+            name: ownerName,
+        },
+    });
+
+    const mergedKeywords = uniqueStrings([
+        ...jsonStringArray(existing?.sourceKeywords),
+        ...candidate.keywords,
+    ]);
+    const mergedTags = uniqueStrings([
+        ...jsonStringArray(existing?.tags),
+        ...normalizeTagList(candidate.item.tag),
+    ]);
+    const play = info.stat?.view ?? candidate.item.play ?? 0;
+    const like = info.stat?.like ?? candidate.item.like ?? 0;
+    const favorite = info.stat?.favorite ?? candidate.item.favorites ?? 0;
+    const share = info.stat?.share ?? 0;
+    const reply = info.stat?.reply ?? candidate.item.review ?? 0;
+    const videoTitle = stripHtml(info.title ?? candidate.item.title) || bvid;
+    const rawAid = info.aid ?? candidate.item.aid ?? null;
+    const publishAt = info.pubdate
+        ? new Date(info.pubdate * 1000)
+        : parseSearchDate(candidate.item.pubdate);
+
+    await prisma.video.upsert({
+        where: { bvid },
+        create: {
+            aid: rawAid === null ? null : String(rawAid),
+            bvid,
+            cleanTitle: videoTitle,
+            coverUrl: normalizeImageUrl(info.pic ?? candidate.item.pic),
+            creatorId: creator.id,
+            description:
+                info.desc?.trim() || candidate.item.description?.trim() || null,
+            durationLabel:
+                candidate.item.duration ||
+                formatDurationFromSeconds(durationSeconds),
+            durationSeconds,
+            engagementRate: calculateEngagementRate(
+                play,
+                like,
+                favorite,
+                share,
+                reply,
+            ),
+            favorite,
+            hasSubtitle: Boolean(existingSubtitle),
+            lastSyncedAt: new Date(),
+            like,
+            play,
+            publishAt,
+            rawInfo: toJsonValue(info),
+            rawSearch: toJsonValue(candidate.item),
+            reply,
+            share,
+            sourceKeywords: toJsonValue(mergedKeywords),
+            subtitle: existingSubtitle,
+            tags: toJsonValue(mergedTags),
+            title: info.title?.trim() || stripHtml(candidate.item.title) || videoTitle,
+            typeName: info.tname?.trim() || candidate.item.typename?.trim() || null,
+        },
+        update: {
+            aid: rawAid === null ? null : String(rawAid),
+            cleanTitle: videoTitle,
+            coverUrl: normalizeImageUrl(info.pic ?? candidate.item.pic),
+            creatorId: creator.id,
+            description:
+                info.desc?.trim() || candidate.item.description?.trim() || null,
+            durationLabel:
+                candidate.item.duration ||
+                formatDurationFromSeconds(durationSeconds),
+            durationSeconds,
+            engagementRate: calculateEngagementRate(
+                play,
+                like,
+                favorite,
+                share,
+                reply,
+            ),
+            favorite,
+            hasSubtitle: Boolean(existingSubtitle ?? existing?.hasSubtitle),
+            lastSyncedAt: new Date(),
+            like,
+            play,
+            publishAt,
+            rawInfo: toJsonValue(info),
+            rawSearch: toJsonValue(candidate.item),
+            reply,
+            share,
+            sourceKeywords: toJsonValue(mergedKeywords),
+            subtitle: existingSubtitle ?? existing?.subtitle ?? null,
+            tags: toJsonValue(mergedTags),
+            title: info.title?.trim() || stripHtml(candidate.item.title) || videoTitle,
+            typeName: info.tname?.trim() || candidate.item.typename?.trim() || null,
+        },
+    });
+
+    return existing ? "updated" : "created";
+}
+
 
 export async function syncVideoLibrary(
     options: SyncOptions = {},
@@ -111,8 +246,12 @@ export async function syncVideoLibrary(
     });
 
     try {
-        const candidates = new Map<string, CandidateVideo>();
+        const seenBvids = new Set<string>();
         let fetchedCount = 0;
+        let dedupedCount = 0;
+        let createdCount = 0;
+        let updatedCount = 0;
+        const subtitleCount = 0;
 
         for (const keyword of keywords) {
             for (let page = 1; page <= pages; page += 1) {
@@ -122,204 +261,28 @@ export async function syncVideoLibrary(
                 fetchedCount += response.items.length;
 
                 for (const item of response.items) {
-                    if (!item.bvid) {
+                    if (!item.bvid || !hasRequiredSyncTag(item.tag)) {
                         continue;
                     }
 
-                    const existing = candidates.get(item.bvid);
-                    if (existing) {
-                        existing.item = chooseBetterCandidate(
-                            existing.item,
-                            item,
-                        );
-                        existing.keywords.add(keyword);
+                    if (seenBvids.has(item.bvid)) {
+                        continue;
+                    }
+
+                    seenBvids.add(item.bvid);
+                    dedupedCount += 1;
+
+                    const result = await syncCandidateVideo(item.bvid, {
+                        item,
+                        keywords: new Set([keyword]),
+                    });
+
+                    if (result === "created") {
+                        createdCount += 1;
                     } else {
-                        candidates.set(item.bvid, {
-                            item,
-                            keywords: new Set([keyword]),
-                        });
+                        updatedCount += 1;
                     }
                 }
-            }
-        }
-
-        const bvids = [...candidates.keys()];
-        const existingVideos =
-            bvids.length === 0
-                ? []
-                : await prisma.video.findMany({
-                      where: {
-                          bvid: {
-                              in: bvids,
-                          },
-                      },
-                      select: {
-                          bvid: true,
-                          hasSubtitle: true,
-                          sourceKeywords: true,
-                          subtitle: true,
-                          tags: true,
-                      },
-                  });
-
-        const existingMap = new Map(
-            existingVideos.map((video) => [video.bvid, video]),
-        );
-
-        let createdCount = 0;
-        let updatedCount = 0;
-        const subtitleCount = 0;
-
-        for (const [bvid, candidate] of candidates) {
-            const info = (await bilibiliQueue.add(() =>
-                getVideoInfo(bvid),
-            )) as BilibiliVideoInfo;
-            const ownerMid = String(
-                info.owner?.mid ?? candidate.item.mid ?? bvid,
-            );
-            const ownerName =
-                info.owner?.name?.trim() ||
-                candidate.item.author?.trim() ||
-                "未知 UP";
-            const existing = existingMap.get(bvid);
-
-            const existingSubtitle = existing?.subtitle ?? null;
-            const durationSeconds =
-                info.duration && info.duration > 0
-                    ? info.duration
-                    : parseDurationToSeconds(candidate.item.duration);
-
-            const creator = await prisma.creator.upsert({
-                where: { mid: ownerMid },
-                update: {
-                    faceUrl: normalizeImageUrl(
-                        info.owner?.face ?? candidate.item.upic,
-                    ),
-                    name: ownerName,
-                },
-                create: {
-                    faceUrl: normalizeImageUrl(
-                        info.owner?.face ?? candidate.item.upic,
-                    ),
-                    mid: ownerMid,
-                    name: ownerName,
-                },
-            });
-
-            const mergedKeywords = uniqueStrings([
-                ...jsonStringArray(existing?.sourceKeywords),
-                ...candidate.keywords,
-            ]);
-            const mergedTags = uniqueStrings([
-                ...jsonStringArray(existing?.tags),
-                ...normalizeTagList(candidate.item.tag),
-            ]);
-            const play = info.stat?.view ?? candidate.item.play ?? 0;
-            const like = info.stat?.like ?? candidate.item.like ?? 0;
-            const favorite =
-                info.stat?.favorite ?? candidate.item.favorites ?? 0;
-            const share = info.stat?.share ?? 0;
-            const reply = info.stat?.reply ?? candidate.item.review ?? 0;
-            const videoTitle =
-                stripHtml(info.title ?? candidate.item.title) || bvid;
-            const rawAid = info.aid ?? candidate.item.aid ?? null;
-            const publishAt = info.pubdate
-                ? new Date(info.pubdate * 1000)
-                : parseSearchDate(candidate.item.pubdate);
-
-            await prisma.video.upsert({
-                where: { bvid },
-                create: {
-                    aid: rawAid === null ? null : String(rawAid),
-                    bvid,
-                    cleanTitle: videoTitle,
-                    coverUrl: normalizeImageUrl(info.pic ?? candidate.item.pic),
-                    creatorId: creator.id,
-                    description:
-                        info.desc?.trim() ||
-                        candidate.item.description?.trim() ||
-                        null,
-                    durationLabel:
-                        candidate.item.duration ||
-                        formatDurationFromSeconds(durationSeconds),
-                    durationSeconds,
-                    engagementRate: calculateEngagementRate(
-                        play,
-                        like,
-                        favorite,
-                        share,
-                        reply,
-                    ),
-                    favorite,
-                    hasSubtitle: Boolean(existingSubtitle),
-                    lastSyncedAt: new Date(),
-                    like,
-                    play,
-                    publishAt,
-                    rawInfo: toJsonValue(info),
-                    rawSearch: toJsonValue(candidate.item),
-                    reply,
-                    share,
-                    sourceKeywords: toJsonValue(mergedKeywords),
-                    subtitle: existingSubtitle,
-                    tags: toJsonValue(mergedTags),
-                    title:
-                        info.title?.trim() ||
-                        stripHtml(candidate.item.title) ||
-                        videoTitle,
-                    typeName:
-                        info.tname?.trim() ||
-                        candidate.item.typename?.trim() ||
-                        null,
-                },
-                update: {
-                    aid: rawAid === null ? null : String(rawAid),
-                    cleanTitle: videoTitle,
-                    coverUrl: normalizeImageUrl(info.pic ?? candidate.item.pic),
-                    creatorId: creator.id,
-                    description:
-                        info.desc?.trim() ||
-                        candidate.item.description?.trim() ||
-                        null,
-                    durationLabel:
-                        candidate.item.duration ||
-                        formatDurationFromSeconds(durationSeconds),
-                    durationSeconds,
-                    engagementRate: calculateEngagementRate(
-                        play,
-                        like,
-                        favorite,
-                        share,
-                        reply,
-                    ),
-                    favorite,
-                    hasSubtitle: Boolean(existingSubtitle ?? existing?.hasSubtitle),
-                    lastSyncedAt: new Date(),
-                    like,
-                    play,
-                    publishAt,
-                    rawInfo: toJsonValue(info),
-                    rawSearch: toJsonValue(candidate.item),
-                    reply,
-                    share,
-                    sourceKeywords: toJsonValue(mergedKeywords),
-                    subtitle: existingSubtitle ?? existing?.subtitle ?? null,
-                    tags: toJsonValue(mergedTags),
-                    title:
-                        info.title?.trim() ||
-                        stripHtml(candidate.item.title) ||
-                        videoTitle,
-                    typeName:
-                        info.tname?.trim() ||
-                        candidate.item.typename?.trim() ||
-                        null,
-                },
-            });
-
-            if (existing) {
-                updatedCount += 1;
-            } else {
-                createdCount += 1;
             }
         }
 
@@ -329,7 +292,7 @@ export async function syncVideoLibrary(
                 createdCount,
                 fetchedCount,
                 finishedAt: new Date(),
-                message: `本次共处理 ${candidates.size} 条去重后的候选视频。`,
+                message: `本次共处理 ${dedupedCount} 条符合标签条件的去重候选视频。`,
                 status: "success",
                 subtitleCount,
                 updatedCount,
@@ -339,7 +302,7 @@ export async function syncVideoLibrary(
         syncRunning = false;
         return {
             createdCount,
-            dedupedCount: candidates.size,
+            dedupedCount,
             fetchedCount,
             keywords,
             pageSize,

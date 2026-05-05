@@ -4,7 +4,7 @@ function toPositiveInt(value: string | undefined, fallback: number) {
 }
 
 function splitKeywords(value: string | undefined) {
-  return (value ?? "华强买瓜,买瓜 鬼畜")
+  return (value ?? "华强买瓜")
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
@@ -16,5 +16,5 @@ export const bilibiliApiBaseUrl = (process.env.BILIBILI_API_BASE_URL ?? "http://
 );
 
 export const defaultSyncKeywords = splitKeywords(process.env.BILIBILI_SYNC_KEYWORDS);
-export const defaultSyncPages = toPositiveInt(process.env.BILIBILI_SYNC_PAGES, 5);
+export const defaultSyncPages = toPositiveInt(process.env.BILIBILI_SYNC_PAGES, 50);
 export const defaultSyncPageSize = toPositiveInt(process.env.BILIBILI_SYNC_PAGE_SIZE, 20);

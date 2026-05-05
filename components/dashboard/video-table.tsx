@@ -21,15 +21,12 @@ export function VideoTable({ videos }: { videos: DashboardVideo[] }) {
             <div className="hidden grid-cols-[minmax(0,2.8fr)_1fr_1fr_0.9fr] gap-4 border-b border-white/10 px-5 py-4 text-xs uppercase tracking-[0.18em] text-slate-500 lg:grid">
                 <span>视频</span>
                 <span>播放 / 互动</span>
-                <span>标签 / 关键词</span>
+                <span>标签</span>
                 <span>时间</span>
             </div>
             <div>
                 {videos.map((video) => {
                     const tags = jsonStringArray(video.tags).slice(0, 3);
-                    const keywords = jsonStringArray(
-                        video.sourceKeywords,
-                    ).slice(0, 2);
 
                     return (
                         <div
@@ -97,14 +94,7 @@ export function VideoTable({ videos }: { videos: DashboardVideo[] }) {
                                         #{tag}
                                     </span>
                                 ))}
-                                {keywords.map((keyword) => (
-                                    <span
-                                        key={keyword}
-                                        className="rounded-full border border-cyan-300/15 bg-cyan-300/10 px-2.5 py-1 text-cyan-100"
-                                    >
-                                        {keyword}
-                                    </span>
-                                ))}
+
                             </div>
                             <div className="text-sm text-slate-300">
                                 <p>

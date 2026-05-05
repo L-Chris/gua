@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { ExternalLink, Sparkles } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import type { LearningVideo } from "@/lib/insights";
 import {
     formatCompactNumber,
@@ -36,11 +36,7 @@ export function LearningVideoCards({ videos }: { videos: LearningVideo[] }) {
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/30 to-transparent" />
                         <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-4">
                             <div>
-                                <p className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1 text-xs font-medium text-emerald-100">
-                                    <Sparkles className="h-3.5 w-3.5" />
-                                    灵感样本
-                                </p>
-                                <h3 className="mt-3 line-clamp-2 text-lg font-semibold text-white">
+                                <h3 className="line-clamp-2 text-lg font-semibold text-white">
                                     {video.title}
                                 </h3>
                             </div>
@@ -72,20 +68,7 @@ export function LearningVideoCards({ videos }: { videos: LearningVideo[] }) {
                         <p className="text-sm leading-6 text-slate-300">
                             {video.reason}
                         </p>
-                        {video.subtitleExcerpt ? (
-                            <p className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm leading-6 text-slate-300">
-                                “{video.subtitleExcerpt}”
-                            </p>
-                        ) : null}
                         <div className="flex flex-wrap gap-2 text-xs text-slate-300">
-                            {video.sourceKeywords.slice(0, 3).map((keyword) => (
-                                <span
-                                    key={keyword}
-                                    className="rounded-full border border-cyan-300/15 bg-cyan-300/10 px-3 py-1 text-cyan-100"
-                                >
-                                    关键词：{keyword}
-                                </span>
-                            ))}
                             {video.tags.slice(0, 3).map((tag) => (
                                 <span
                                     key={tag}

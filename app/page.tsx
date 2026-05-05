@@ -13,6 +13,7 @@ import { DurationDistributionChart } from "@/components/charts/duration-distribu
 import { UploadTrendChart } from "@/components/charts/upload-trend-chart";
 import { LearningVideoCards } from "@/components/dashboard/learning-video-cards";
 import { MetricCard } from "@/components/dashboard/metric-card";
+import { CreatorFilterSelect } from "@/components/dashboard/creator-filter-select";
 import { SyncSubmitButton } from "@/components/dashboard/sync-submit-button";
 import { TopCreatorList } from "@/components/dashboard/top-creator-list";
 import { TopTagList } from "@/components/dashboard/top-tag-list";
@@ -36,7 +37,25 @@ function syncStatusLabel(status: string | null | undefined) {
     return status;
 }
 
-export default async function Home() {
+type HomeProps = {
+    searchParams?: Promise<{
+        creatorMid?: string | string[];
+        libraryPage?: string | string[];
+    }>;
+};
+
+export default async function Home({ searchParams }: HomeProps) {
+    const resolvedSearchParams = await searchParams;
+    const rawCreatorMid = resolvedSearchParams?.creatorMid;
+    const selectedCreatorMid = Array.isArray(rawCreatorMid)
+        ? rawCreatorMid[0]
+        : rawCreatorMid;
+    const rawLibraryPage = resolvedSearchParams?.libraryPage;
+    const parsedLibraryPage = Number.parseInt(
+        Array.isArray(rawLibraryPage) ? rawLibraryPage[0] : rawLibraryPage ?? "1",
+        10,
+    );
+
     const [videos, lastSync] = await Promise.all([
         prisma.video.findMany({
             orderBy: [{ publishAt: "desc" }],
@@ -56,6 +75,35 @@ export default async function Home() {
     ]);
 
     const insights = buildDashboardInsights(videos);
+    const creatorFilters = [...videos.reduce((map, video) => {
+        const current = map.get(video.creator.mid);
+        if (current) {
+            current.videoCount += 1;
+        } else {
+            map.set(video.creator.mid, {
+                faceUrl: video.creator.faceUrl,
+                mid: video.creator.mid,
+                name: video.creator.name,
+                videoCount: 1,
+            });
+        }
+        return map;
+    }, new Map<string, { faceUrl: string | null; mid: string; name: string; videoCount: number }>()).values()].sort(
+        (left, right) => right.videoCount - left.videoCount || left.name.localeCompare(right.name),
+    );
+    const libraryVideos = selectedCreatorMid
+        ? videos.filter((video) => video.creator.mid === selectedCreatorMid)
+        : videos;
+    const libraryPageSize = 20;
+    const totalLibraryPages = Math.max(1, Math.ceil(libraryVideos.length / libraryPageSize));
+    const currentLibraryPage = Math.min(
+        Math.max(Number.isFinite(parsedLibraryPage) ? parsedLibraryPage : 1, 1),
+        totalLibraryPages,
+    );
+    const pagedLibraryVideos = libraryVideos.slice(
+        (currentLibraryPage - 1) * libraryPageSize,
+        currentLibraryPage * libraryPageSize,
+    );
 
     return (
         <main className="px-4 py-6 md:px-8 lg:px-10 lg:py-8">
@@ -221,26 +269,70 @@ export default async function Home() {
                 </section>
 
                 <section className="rounded-4xl border border-white/10 bg-white/5 p-6">
-                    <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-emerald-200">
-                                最近收录
-                            </p>
-                            <h2 className="mt-1 text-2xl font-semibold text-white">
-                                最新素材样本
-                            </h2>
-                            <p className="mt-2 text-sm leading-6 text-slate-400">
-                                先看最新稿件的标题变化，再去判断这个梗最近是不是开始迁移到别的分区或玩法。
+                    <div className="mb-5 flex flex-col gap-4">
+                        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-emerald-200">
+                                    完整素材库
+                                </p>
+                                <h2 className="mt-1 text-2xl font-semibold text-white">
+                                    全部素材样本
+                                </h2>
+                            </div>
+                            <p className="text-sm text-slate-400">
+                                当前显示第 {currentLibraryPage} / {totalLibraryPages} 页，{pagedLibraryVideos.length} / {libraryVideos.length} 条
                             </p>
                         </div>
-                        <Link
-                            href="/videos"
-                            className="text-sm font-medium text-emerald-200 transition hover:text-emerald-100"
-                        >
-                            打开完整素材库 →
-                        </Link>
+
+                        <CreatorFilterSelect
+                            creators={creatorFilters}
+                            selectedCreatorMid={selectedCreatorMid}
+                        />
                     </div>
-                    <VideoTable videos={insights.recentVideos.slice(0, 10)} />
+                    <VideoTable videos={pagedLibraryVideos} />
+                    <div className="mt-5 flex items-center justify-between gap-3 text-sm text-slate-300">
+                        {currentLibraryPage > 1 ? (
+                            <Link
+                                href={{
+                                    pathname: "/",
+                                    query: {
+                                        ...(selectedCreatorMid ? { creatorMid: selectedCreatorMid } : {}),
+                                        libraryPage: String(currentLibraryPage - 1),
+                                    },
+                                }}
+                                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 transition hover:text-white"
+                            >
+                                上一页
+                            </Link>
+                        ) : (
+                            <span className="rounded-full border border-white/5 bg-white/2 px-4 py-2 text-slate-600">
+                                上一页
+                            </span>
+                        )}
+
+                        <span className="text-slate-400">
+                            每页 {libraryPageSize} 条
+                        </span>
+
+                        {currentLibraryPage < totalLibraryPages ? (
+                            <Link
+                                href={{
+                                    pathname: "/",
+                                    query: {
+                                        ...(selectedCreatorMid ? { creatorMid: selectedCreatorMid } : {}),
+                                        libraryPage: String(currentLibraryPage + 1),
+                                    },
+                                }}
+                                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 transition hover:text-white"
+                            >
+                                下一页
+                            </Link>
+                        ) : (
+                            <span className="rounded-full border border-white/5 bg-white/2 px-4 py-2 text-slate-600">
+                                下一页
+                            </span>
+                        )}
+                    </div>
                 </section>
             </div>
         </main>

@@ -6,5 +6,4 @@ import { syncVideoLibrary } from "@/lib/sync";
 export async function syncVideoLibraryAction() {
     await syncVideoLibrary();
     revalidatePath("/");
-    revalidatePath("/videos");
 }
