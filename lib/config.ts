@@ -4,7 +4,7 @@ function toPositiveInt(value: string | undefined, fallback: number) {
 }
 
 function splitKeywords(value: string | undefined) {
-  return (value ?? "华强买瓜,你这瓜保熟吗,刘华强 买瓜,华强 劈瓜,买瓜 鬼畜")
+  return (value ?? "华强买瓜,买瓜 鬼畜")
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);

@@ -22,6 +22,8 @@ import { formatDurationFromSeconds } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { bilibiliQueue } from "@/lib/queue";
 
+let syncRunning = false;
+
 export type SyncOptions = {
     keywords?: string[];
     pageSize?: number;
@@ -89,6 +91,10 @@ function chooseBetterCandidate(
 export async function syncVideoLibrary(
     options: SyncOptions = {},
 ): Promise<SyncSummary> {
+    if (syncRunning) {
+        throw new Error("同步任务正在执行中，请稍后再试");
+    }
+    syncRunning = true;
     const keywords = uniqueStrings(
         options.keywords?.length ? options.keywords : defaultSyncKeywords,
     );
@@ -355,6 +361,7 @@ export async function syncVideoLibrary(
             },
         });
 
+        syncRunning = false;
         return {
             createdCount,
             dedupedCount: candidates.size,
@@ -376,6 +383,7 @@ export async function syncVideoLibrary(
                 status: "failed",
             },
         });
+        syncRunning = false;
         throw error;
     }
 }
