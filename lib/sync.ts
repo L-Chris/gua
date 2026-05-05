@@ -1,7 +1,6 @@
 import { Prisma } from "@prisma/client";
 import {
     getVideoInfo,
-    getVideoSubtitle,
     normalizeImageUrl,
     normalizeTagList,
     parseDurationToSeconds,
@@ -13,7 +12,6 @@ import {
     type BilibiliVideoInfo,
 } from "@/lib/bilibili";
 import {
-    defaultSubtitleLimit,
     defaultSyncKeywords,
     defaultSyncPageSize,
     defaultSyncPages,
@@ -28,7 +26,6 @@ export type SyncOptions = {
     keywords?: string[];
     pageSize?: number;
     pages?: number;
-    subtitleLimit?: number;
 };
 
 export type SyncSummary = {
@@ -104,11 +101,6 @@ export async function syncVideoLibrary(
         options.pageSize && options.pageSize > 0
             ? options.pageSize
             : defaultSyncPageSize;
-    const subtitleLimit =
-        options.subtitleLimit !== undefined && options.subtitleLimit >= 0
-            ? options.subtitleLimit
-            : defaultSubtitleLimit;
-
     const syncRun = await prisma.syncRun.create({
         data: {
             keywords: toJsonValue(keywords),
@@ -176,7 +168,7 @@ export async function syncVideoLibrary(
 
         let createdCount = 0;
         let updatedCount = 0;
-        let subtitleCount = 0;
+        const subtitleCount = 0;
 
         for (const [bvid, candidate] of candidates) {
             const info = (await bilibiliQueue.add(() =>
@@ -191,28 +183,11 @@ export async function syncVideoLibrary(
                 "未知 UP";
             const existing = existingMap.get(bvid);
 
-            let subtitle = existing?.subtitle ?? null;
+            const existingSubtitle = existing?.subtitle ?? null;
             const durationSeconds =
                 info.duration && info.duration > 0
                     ? info.duration
                     : parseDurationToSeconds(candidate.item.duration);
-
-            if (
-                !subtitle &&
-                subtitleCount < subtitleLimit &&
-                durationSeconds <= 15 * 60
-            ) {
-                try {
-                    subtitle = (await bilibiliQueue.add(() =>
-                        getVideoSubtitle(bvid),
-                    )) as string | null;
-                    if (subtitle) {
-                        subtitleCount += 1;
-                    }
-                } catch (error) {
-                    console.warn(`subtitle sync failed for ${bvid}`, error);
-                }
-            }
 
             const creator = await prisma.creator.upsert({
                 where: { mid: ownerMid },
@@ -276,7 +251,7 @@ export async function syncVideoLibrary(
                         reply,
                     ),
                     favorite,
-                    hasSubtitle: Boolean(subtitle),
+                    hasSubtitle: Boolean(existingSubtitle),
                     lastSyncedAt: new Date(),
                     like,
                     play,
@@ -286,7 +261,7 @@ export async function syncVideoLibrary(
                     reply,
                     share,
                     sourceKeywords: toJsonValue(mergedKeywords),
-                    subtitle,
+                    subtitle: existingSubtitle,
                     tags: toJsonValue(mergedTags),
                     title:
                         info.title?.trim() ||
@@ -318,7 +293,7 @@ export async function syncVideoLibrary(
                         reply,
                     ),
                     favorite,
-                    hasSubtitle: Boolean(subtitle ?? existing?.hasSubtitle),
+                    hasSubtitle: Boolean(existingSubtitle ?? existing?.hasSubtitle),
                     lastSyncedAt: new Date(),
                     like,
                     play,
@@ -328,7 +303,7 @@ export async function syncVideoLibrary(
                     reply,
                     share,
                     sourceKeywords: toJsonValue(mergedKeywords),
-                    subtitle: subtitle ?? existing?.subtitle ?? null,
+                    subtitle: existingSubtitle ?? existing?.subtitle ?? null,
                     tags: toJsonValue(mergedTags),
                     title:
                         info.title?.trim() ||

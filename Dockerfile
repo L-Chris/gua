@@ -23,4 +23,4 @@ ENV PORT=3000
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && HOSTNAME=0.0.0.0 node .next/standalone/server.js"]
+CMD ["sh", "scripts/start-production.sh"]

@@ -17,7 +17,6 @@ import { SyncSubmitButton } from "@/components/dashboard/sync-submit-button";
 import { TopCreatorList } from "@/components/dashboard/top-creator-list";
 import { TopTagList } from "@/components/dashboard/top-tag-list";
 import { VideoTable } from "@/components/dashboard/video-table";
-import { defaultSyncKeywords } from "@/lib/config";
 import {
     formatCompactNumber,
     formatDateTime,
@@ -62,7 +61,7 @@ export default async function Home() {
         <main className="px-4 py-6 md:px-8 lg:px-10 lg:py-8">
             <div className="mx-auto flex max-w-7xl flex-col gap-6">
                 <section className="overflow-hidden rounded-[36px] border border-white/10 bg-white/6 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.25)] backdrop-blur md:p-8">
-                    <div className="grid gap-8 xl:grid-cols-[1.2fr_0.8fr]">
+                    <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
                         <div>
                             <p className="text-sm font-semibold uppercase tracking-[0.28em] text-emerald-300">
                                 HuaQiang Idea Radar
@@ -70,85 +69,26 @@ export default async function Home() {
                             <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-white md:text-6xl">
                                 华强买瓜素材雷达
                             </h1>
-                            <p className="mt-4 max-w-2xl text-base leading-8 text-slate-300 md:text-lg">
-                                面向华强买瓜相关视频 Up 主的灵感站。你可以直接看
-                                B
-                                站样本库里的投稿趋势、常见标签、高表现样本和最近更新，快速判断还能往哪种方向做二创。
-                            </p>
-                            <div className="mt-6 flex flex-wrap gap-3 text-sm text-slate-300">
-                                {defaultSyncKeywords.map((keyword) => (
-                                    <span
-                                        key={keyword}
-                                        className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-emerald-100"
-                                    >
-                                        {keyword}
-                                    </span>
-                                ))}
-                            </div>
-                            <div className="mt-8 flex flex-wrap items-center gap-4 text-sm text-slate-400">
-                                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
-                                    数据源：bilibili-mcp · 8012
-                                </span>
-                                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
-                                    本地数据库：MySQL
-                                </span>
-                                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
-                                    视图：趋势 / 标签 / 样本 / 素材库
-                                </span>
-                            </div>
                         </div>
 
-                        <div className="flex flex-col gap-4 rounded-4xl border border-white/10 bg-slate-950/50 p-5">
-                            <div className="flex items-start justify-between gap-4">
-                                <div>
-                                    <p className="text-sm font-medium text-slate-300">
-                                        最新同步
-                                    </p>
-                                    <p className="mt-2 text-2xl font-semibold text-white">
-                                        {syncStatusLabel(lastSync?.status)}
-                                    </p>
-                                    <p className="mt-2 text-sm leading-6 text-slate-400">
-                                        {lastSync
-                                            ? `${formatDateTime(lastSync.finishedAt ?? lastSync.startedAt)} · ${lastSync.message ?? "已更新素材库"}`
-                                            : "当前还没有样本数据，先抓一轮默认关键词即可开始分析。"}
-                                    </p>
-                                </div>
-                                <div className="rounded-2xl border border-emerald-300/15 bg-emerald-300/10 px-3 py-1 text-xs font-medium text-emerald-100">
-                                    默认 {defaultSyncKeywords.length} 组关键词
-                                </div>
+                        <div className="flex min-w-72 flex-col gap-4 rounded-4xl border border-white/10 bg-slate-950/50 p-5">
+                            <div>
+                                <p className="text-sm font-medium text-slate-300">
+                                    最新同步
+                                </p>
+                                <p className="mt-2 text-2xl font-semibold text-white">
+                                    {syncStatusLabel(lastSync?.status)}
+                                </p>
+                                <p className="mt-2 text-sm leading-6 text-slate-400">
+                                    {lastSync
+                                        ? formatDateTime(lastSync.finishedAt ?? lastSync.startedAt)
+                                        : "尚未同步"}
+                                </p>
                             </div>
 
                             <form action={syncVideoLibraryAction}>
                                 <SyncSubmitButton />
                             </form>
-
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                                    <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-                                        AI 字幕抓取
-                                    </p>
-                                    <p className="mt-2 text-sm leading-6 text-slate-300">
-                                        默认只给时长 15
-                                        分钟以内、且还没抓过字幕的样本补字幕，避免同步太慢。
-                                    </p>
-                                </div>
-                                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                                    <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-                                        适合用途
-                                    </p>
-                                    <p className="mt-2 text-sm leading-6 text-slate-300">
-                                        找近期变体、看热门标签、挑选可拆解标题与节奏样本。
-                                    </p>
-                                </div>
-                            </div>
-
-                            <Link
-                                href="/videos"
-                                className="inline-flex items-center gap-2 text-sm font-medium text-emerald-200 transition hover:text-emerald-100"
-                            >
-                                查看完整素材库
-                                <span aria-hidden>→</span>
-                            </Link>
                         </div>
                     </div>
                 </section>

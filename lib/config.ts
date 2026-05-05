@@ -16,6 +16,5 @@ export const bilibiliApiBaseUrl = (process.env.BILIBILI_API_BASE_URL ?? "http://
 );
 
 export const defaultSyncKeywords = splitKeywords(process.env.BILIBILI_SYNC_KEYWORDS);
-export const defaultSyncPages = toPositiveInt(process.env.BILIBILI_SYNC_PAGES, 1);
-export const defaultSyncPageSize = toPositiveInt(process.env.BILIBILI_SYNC_PAGE_SIZE, 10);
-export const defaultSubtitleLimit = toPositiveInt(process.env.BILIBILI_SUBTITLE_LIMIT, 8);
+export const defaultSyncPages = toPositiveInt(process.env.BILIBILI_SYNC_PAGES, 5);
+export const defaultSyncPageSize = toPositiveInt(process.env.BILIBILI_SYNC_PAGE_SIZE, 20);

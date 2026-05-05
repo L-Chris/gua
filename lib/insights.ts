@@ -228,7 +228,7 @@ export function buildDashboardInsights(videos: DashboardVideo[]): DashboardInsig
     .map(([label, count]) => ({ label, count }));
 
   const learningVideos = [...videos]
-    .sort((left, right) => ideaScore(right) - ideaScore(left))
+    .sort((left, right) => right.play - left.play)
     .slice(0, 6)
     .map((video) => ({
       bvid: video.bvid,

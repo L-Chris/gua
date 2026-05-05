@@ -10,7 +10,8 @@
         "prisma:generate": "prisma generate",
         "prisma:migrate": "prisma migrate dev",
         "prisma:push": "prisma db push",
-        "sync": "tsx scripts/sync-videos.ts"
+        "sync": "tsx scripts/sync-videos.ts",
+        "subtitle:backfill:worker": "tsx scripts/subtitle-backfill-worker.ts"
     },
     "dependencies": {
         "@prisma/client": "^6.19.3",
