@@ -17,10 +17,14 @@ export function VideoTable({
     videos,
     allTags,
     onToggleTag,
+    selectedBvids,
+    onToggleSelect,
 }: {
     videos: DashboardVideo[];
     allTags: TagRecord[];
     onToggleTag: (bvid: string, tagId: string, tagName: string) => void;
+    selectedBvids: Set<string>;
+    onToggleSelect: (bvid: string) => void;
 }) {
     const [openBvid, setOpenBvid] = useState<string | null>(null);
     const [pendingBvid, setPendingBvid] = useState<string | null>(null);
@@ -68,7 +72,24 @@ export function VideoTable({
 
     return (
         <div className="rounded-[28px] border border-white/10 bg-slate-950/50">
-            <div className="hidden grid-cols-[minmax(0,2.8fr)_1fr_1fr_0.9fr] gap-4 border-b border-white/10 px-5 py-4 text-xs uppercase tracking-[0.18em] text-slate-500 lg:grid">
+            <div className="hidden grid-cols-[40px_minmax(0,2.8fr)_1fr_1fr_0.9fr] gap-4 border-b border-white/10 px-5 py-4 text-xs uppercase tracking-[0.18em] text-slate-500 lg:grid">
+                <span className="flex items-center justify-center">
+                    <input
+                        type="checkbox"
+                        checked={videos.length > 0 && videos.every((v) => selectedBvids.has(v.bvid))}
+                        onChange={() => {
+                            const allSelected = videos.every((v) => selectedBvids.has(v.bvid));
+                            for (const video of videos) {
+                                if (allSelected) {
+                                    onToggleSelect(video.bvid);
+                                } else if (!selectedBvids.has(video.bvid)) {
+                                    onToggleSelect(video.bvid);
+                                }
+                            }
+                        }}
+                        className="h-4 w-4 rounded border-slate-600 bg-slate-800 accent-emerald-400"
+                    />
+                </span>
                 <span>视频</span>
                 <span>播放 / 互动</span>
                 <span>标签</span>
@@ -81,8 +102,16 @@ export function VideoTable({
                     return (
                         <div
                             key={video.bvid}
-                            className="grid gap-4 border-b border-white/8 px-5 py-4 last:border-b-0 lg:grid-cols-[minmax(0,2.8fr)_1fr_1fr_0.9fr] lg:items-center"
+                            className="grid gap-4 border-b border-white/8 px-5 py-4 last:border-b-0 lg:grid-cols-[40px_minmax(0,2.8fr)_1fr_1fr_0.9fr] lg:items-center"
                         >
+                            <div className="flex items-center justify-center">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedBvids.has(video.bvid)}
+                                    onChange={() => onToggleSelect(video.bvid)}
+                                    className="h-4 w-4 rounded border-slate-600 bg-slate-800 accent-emerald-400"
+                                />
+                            </div>
                             <div className="flex gap-4">
                                 <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-2xl bg-slate-900">
                                     {video.coverUrl ? (

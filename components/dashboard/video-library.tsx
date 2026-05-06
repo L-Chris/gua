@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { jsonStringArray, type DashboardVideo } from "@/lib/insights";
 import { VideoTable } from "@/components/dashboard/video-table";
+import { aiAutoTag } from "@/app/actions/ai-tag";
 
 type TagRecord = { id: string; name: string };
 
@@ -34,6 +35,8 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
     const [selectedCreatorMid, setSelectedCreatorMid] = useState("");
     const [librarySort, setLibrarySort] = useState<LibrarySort>("playDesc");
     const [page, setPage] = useState(1);
+    const [selectedBvids, setSelectedBvids] = useState<Set<string>>(new Set());
+    const [aiTagging, setAiTagging] = useState(false);
 
     const filteredCreators = useMemo(() => {
         const keyword = creatorKeyword.trim().toLowerCase();
@@ -111,6 +114,61 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
         setPage(1);
     }
 
+    function handleToggleSelect(bvid: string) {
+        setSelectedBvids((prev) => {
+            const next = new Set(prev);
+            if (next.has(bvid)) {
+                next.delete(bvid);
+            } else {
+                next.add(bvid);
+            }
+            return next;
+        });
+    }
+
+    async function handleAiTagClick() {
+        const bvidsToTag = [...selectedBvids];
+        if (bvidsToTag.length === 0) {
+            return;
+        }
+
+        setAiTagging(true);
+        try {
+            const result = await aiAutoTag(bvidsToTag);
+            setSelectedBvids(new Set());
+
+            if (result.appliedTags.length > 0) {
+                setVideos((prev) =>
+                    prev.map((video) => {
+                        const applied = result.appliedTags.find(
+                            (t) => t.bvid === video.bvid,
+                        );
+                        if (!applied) {
+                            return video;
+                        }
+
+                        const alreadyHasTag = video.videoTags.some(
+                            (t) => t.id === applied.tagId,
+                        );
+                        if (alreadyHasTag) {
+                            return video;
+                        }
+
+                        return {
+                            ...video,
+                            videoTags: [
+                                ...video.videoTags,
+                                { id: applied.tagId, name: applied.tagName },
+                            ],
+                        };
+                    }),
+                );
+            }
+        } finally {
+            setAiTagging(false);
+        }
+    }
+
     function handleToggleTag(bvid: string, tagId: string, tagName: string) {
         setVideos((prev) =>
             prev.map((video) => {
@@ -146,7 +204,18 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
                         {titleKeyword.trim() || tagKeyword.trim()
                             ? ` · 标题过滤: ${titleKeyword.trim() || "无"} · 标签过滤: ${tagKeyword.trim() || "无"}`
                             : ""}
+                        {selectedBvids.size > 0 ? ` · 已选 ${selectedBvids.size} 个` : ""}
                     </p>
+                    {selectedBvids.size > 0 ? (
+                        <button
+                            type="button"
+                            disabled={aiTagging}
+                            onClick={handleAiTagClick}
+                            className="rounded-full border border-violet-300/20 bg-violet-300/10 px-4 py-2 text-sm font-medium text-violet-100 transition hover:bg-violet-300/20 disabled:opacity-50"
+                        >
+                            {aiTagging ? "AI 打标签中..." : `✨ AI 打标签 (${selectedBvids.size})`}
+                        </button>
+                    ) : null}
                 </div>
 
                 <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(220px,320px)_minmax(180px,220px)]">
@@ -200,7 +269,7 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
                 </div>
             </div>
 
-            <VideoTable videos={pagedVideos} allTags={allTags} onToggleTag={handleToggleTag} />
+            <VideoTable videos={pagedVideos} allTags={allTags} onToggleTag={handleToggleTag} selectedBvids={selectedBvids} onToggleSelect={handleToggleSelect} />
 
             <div className="mt-5 flex flex-col items-center gap-2 text-sm text-slate-300">
                 <div className="flex items-center gap-3">
