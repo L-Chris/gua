@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { syncVideoLibraryAction } from "@/app/actions/sync";
 import { DurationDistributionChart } from "@/components/charts/duration-distribution-chart";
+import { TaggedVideoDistributionChart } from "@/components/charts/tagged-video-distribution-chart";
 import { UploadTrendChart } from "@/components/charts/upload-trend-chart";
 import { LearningVideoCards } from "@/components/dashboard/learning-video-cards";
 import { MetricCard } from "@/components/dashboard/metric-card";
@@ -189,6 +190,23 @@ export default async function Home() {
                             data={insights.durationBuckets}
                         />
                     </div>
+                </section>
+
+                <section className="rounded-4xl border border-white/10 bg-white/5 p-6">
+                    <div className="mb-5 flex items-center justify-between gap-4">
+                        <div>
+                            <p className="text-sm font-medium text-violet-200">
+                                标签标注分布
+                            </p>
+                            <h2 className="mt-1 text-2xl font-semibold text-white">
+                                已打标签 / 未打标签视频数
+                            </h2>
+                            <p className="mt-2 text-sm leading-6 text-slate-400">
+                                用于快速查看素材库中已经做过人工标签标注的视频数量，以及尚未标注的视频数量。
+                            </p>
+                        </div>
+                    </div>
+                    <TaggedVideoDistributionChart data={insights.taggedVideoBuckets} />
                 </section>
 
                 <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">

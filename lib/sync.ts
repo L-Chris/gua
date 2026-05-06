@@ -22,6 +22,7 @@ import { bilibiliQueue } from "@/lib/queue";
 
 let syncRunning = false;
 const interactiveVideoTagId = "10500";
+const humanVocaloidTagId = "10600";
 
 export type SyncOptions = {
     keywords?: string[];
@@ -132,10 +133,12 @@ async function syncCandidateVideo(bvid: string, candidate: CandidateVideo) {
         ...jsonStringArray(existing?.sourceKeywords),
         ...candidate.keywords,
     ]);
+    const sourceTags = normalizeTagList(candidate.item.tag);
     const mergedTags = uniqueStrings([
         ...jsonStringArray(existing?.tags),
-        ...normalizeTagList(candidate.item.tag),
+        ...sourceTags,
     ]);
+    const existingVideoTagIds = new Set(existing?.videoTags.map((tag) => tag.id) ?? []);
     const play = info.stat?.view ?? candidate.item.play ?? 0;
     const like = info.stat?.like ?? candidate.item.like ?? 0;
     const favorite = info.stat?.favorite ?? candidate.item.favorites ?? 0;
@@ -222,13 +225,28 @@ async function syncCandidateVideo(bvid: string, candidate: CandidateVideo) {
 
     if (
         info.rights?.is_stein_gate === 1 &&
-        !existing?.videoTags.some((tag) => tag.id === interactiveVideoTagId)
+        !existingVideoTagIds.has(interactiveVideoTagId)
     ) {
         await prisma.video.update({
             where: { bvid },
             data: {
                 videoTags: {
                     connect: { id: interactiveVideoTagId },
+                },
+            },
+        });
+        existingVideoTagIds.add(interactiveVideoTagId);
+    }
+
+    if (
+        sourceTags.some((tag) => tag.includes("人力VOCALOID")) &&
+        !existingVideoTagIds.has(humanVocaloidTagId)
+    ) {
+        await prisma.video.update({
+            where: { bvid },
+            data: {
+                videoTags: {
+                    connect: { id: humanVocaloidTagId },
                 },
             },
         });

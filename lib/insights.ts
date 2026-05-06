@@ -51,6 +51,11 @@ export type DurationBucket = {
   label: string;
 };
 
+export type TaggedVideoBucket = {
+  count: number;
+  label: string;
+};
+
 export type LearningVideo = {
   bvid: string;
   coverUrl: string | null;
@@ -70,6 +75,7 @@ export type DashboardInsights = {
   durationBuckets: DurationBucket[];
   learningVideos: LearningVideo[];
   recentVideos: DashboardVideo[];
+  taggedVideoBuckets: TaggedVideoBucket[];
   topCreators: CreatorSummary[];
   topTags: TagSummary[];
   uploadTrend: TrendPoint[];
@@ -216,6 +222,30 @@ export function buildDashboardInsights(videos: DashboardVideo[]): DashboardInsig
     }
   }
 
+  const customTagMap = new Map<string, number>();
+  let untaggedVideoCount = 0;
+
+  for (const video of videos) {
+    if (video.videoTags.length === 0) {
+      untaggedVideoCount += 1;
+      continue;
+    }
+
+    for (const tag of video.videoTags) {
+      customTagMap.set(tag.name, (customTagMap.get(tag.name) ?? 0) + 1);
+    }
+  }
+
+  const taggedVideoBuckets: TaggedVideoBucket[] = [
+    ...[...customTagMap.entries()]
+      .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+      .map(([label, count]) => ({ label, count })),
+    {
+      label: "未打标签",
+      count: untaggedVideoCount,
+    },
+  ];
+
   const tagMap = new Map<string, number>();
   for (const video of videos) {
     for (const tag of toStringArray(video.tags)) {
@@ -254,6 +284,7 @@ export function buildDashboardInsights(videos: DashboardVideo[]): DashboardInsig
     durationBuckets,
     learningVideos,
     recentVideos,
+    taggedVideoBuckets,
     topCreators,
     topTags,
     uploadTrend,

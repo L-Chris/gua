@@ -67,7 +67,7 @@ export function VideoTable({
     }
 
     return (
-        <div className="overflow-hidden rounded-[28px] border border-white/10 bg-slate-950/50">
+        <div className="rounded-[28px] border border-white/10 bg-slate-950/50">
             <div className="hidden grid-cols-[minmax(0,2.8fr)_1fr_1fr_0.9fr] gap-4 border-b border-white/10 px-5 py-4 text-xs uppercase tracking-[0.18em] text-slate-500 lg:grid">
                 <span>视频</span>
                 <span>播放 / 互动</span>
@@ -169,7 +169,7 @@ export function VideoTable({
                                         + 标签
                                     </button>
                                     {openBvid === video.bvid ? (
-                                        <div className="absolute right-0 z-20 mt-1 max-h-48 w-44 overflow-auto rounded-2xl border border-white/10 bg-slate-900 p-2 shadow-xl">
+                                                <div className="absolute right-0 z-30 mt-1 max-h-48 w-44 overflow-auto rounded-2xl border border-white/10 bg-slate-900 p-2 shadow-xl">
                                             {allTags
                                                 .filter(
                                                     (tag) =>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { DashboardVideo } from "@/lib/insights";
+import { jsonStringArray, type DashboardVideo } from "@/lib/insights";
 import { VideoTable } from "@/components/dashboard/video-table";
 
 type TagRecord = { id: string; name: string };
@@ -22,9 +22,15 @@ type VideoLibraryProps = {
 
 const pageSize = 20;
 
+function normalizeKeyword(value: string) {
+    return value.replace(/\s+/g, "").trim().toLowerCase();
+}
+
 export function VideoLibrary({ creators, videos: initialVideos, allTags }: VideoLibraryProps) {
     const [videos, setVideos] = useState(initialVideos);
     const [creatorKeyword, setCreatorKeyword] = useState("");
+    const [titleKeyword, setTitleKeyword] = useState("");
+    const [tagKeyword, setTagKeyword] = useState("");
     const [selectedCreatorMid, setSelectedCreatorMid] = useState("");
     const [librarySort, setLibrarySort] = useState<LibrarySort>("playDesc");
     const [page, setPage] = useState(1);
@@ -42,9 +48,42 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
     }, [creators, creatorKeyword]);
 
     const filteredVideos = useMemo(() => {
-        const matchedVideos = selectedCreatorMid
-            ? videos.filter((video) => video.creator.mid === selectedCreatorMid)
-            : videos;
+        const normalizedTitleKeyword = normalizeKeyword(titleKeyword);
+        const normalizedTagKeyword = normalizeKeyword(tagKeyword);
+
+        const matchedVideos = videos.filter((video) => {
+            if (selectedCreatorMid && video.creator.mid !== selectedCreatorMid) {
+                return false;
+            }
+
+            if (normalizedTitleKeyword) {
+                const cleanTitle = normalizeKeyword(video.cleanTitle);
+                const rawTitle = normalizeKeyword(video.title);
+                const bvid = normalizeKeyword(video.bvid);
+                const titleMatched =
+                    cleanTitle.includes(normalizedTitleKeyword) ||
+                    rawTitle.includes(normalizedTitleKeyword) ||
+                    bvid.includes(normalizedTitleKeyword);
+                if (!titleMatched) {
+                    return false;
+                }
+            }
+
+            if (normalizedTagKeyword) {
+                const sourceTags = jsonStringArray(video.tags);
+                const customTags = video.videoTags.map((tag) => tag.name);
+                const allTagNames = [...sourceTags, ...customTags];
+                const tagMatched = allTagNames.some((tag) =>
+                    normalizeKeyword(tag).includes(normalizedTagKeyword),
+                );
+
+                if (!tagMatched) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
 
         return [...matchedVideos].sort((left, right) => {
             if (librarySort === "playDesc") {
@@ -53,7 +92,7 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
 
             return new Date(right.publishAt).getTime() - new Date(left.publishAt).getTime();
         });
-    }, [videos, selectedCreatorMid, librarySort]);
+    }, [videos, selectedCreatorMid, titleKeyword, tagKeyword, librarySort]);
 
     const totalPages = Math.max(1, Math.ceil(filteredVideos.length / pageSize));
     const currentPage = Math.min(page, totalPages);
@@ -104,15 +143,38 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
                     </div>
                     <p className="text-sm text-slate-400">
                         当前显示第 {currentPage} / {totalPages} 页，{pagedVideos.length} / {filteredVideos.length} 条
+                        {titleKeyword.trim() || tagKeyword.trim()
+                            ? ` · 标题过滤: ${titleKeyword.trim() || "无"} · 标签过滤: ${tagKeyword.trim() || "无"}`
+                            : ""}
                     </p>
                 </div>
 
-                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)_minmax(180px,220px)]">
+                <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(220px,320px)_minmax(180px,220px)]">
                     <input
                         type="search"
                         value={creatorKeyword}
                         onChange={(event) => setCreatorKeyword(event.target.value)}
                         placeholder="搜索 UP 主"
+                        className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-emerald-300/40"
+                    />
+                    <input
+                        type="search"
+                        value={titleKeyword}
+                        onChange={(event) => {
+                            setTitleKeyword(event.target.value);
+                            setPage(1);
+                        }}
+                        placeholder="按标题过滤"
+                        className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-emerald-300/40"
+                    />
+                    <input
+                        type="search"
+                        value={tagKeyword}
+                        onChange={(event) => {
+                            setTagKeyword(event.target.value);
+                            setPage(1);
+                        }}
+                        placeholder="按标签过滤"
                         className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-emerald-300/40"
                     />
                     <select
@@ -140,26 +202,31 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
 
             <VideoTable videos={pagedVideos} allTags={allTags} onToggleTag={handleToggleTag} />
 
-            <div className="mt-5 flex items-center justify-between gap-3 text-sm text-slate-300">
-                <button
-                    type="button"
-                    disabled={currentPage <= 1}
-                    onClick={() => setPage((value) => Math.max(value - 1, 1))}
-                    className="rounded-full border border-white/10 bg-white/5 px-4 py-2 transition hover:text-white disabled:border-white/5 disabled:bg-white/2 disabled:text-slate-600"
-                >
-                    上一页
-                </button>
+            <div className="mt-5 flex flex-col items-center gap-2 text-sm text-slate-300">
+                <div className="flex items-center gap-3">
+                    <button
+                        type="button"
+                        disabled={currentPage <= 1}
+                        onClick={() => setPage((value) => Math.max(value - 1, 1))}
+                        className="rounded-full border border-white/10 bg-white/5 px-4 py-2 transition hover:text-white disabled:border-white/5 disabled:bg-white/2 disabled:text-slate-600"
+                    >
+                        上一页
+                    </button>
 
-                <span className="text-slate-400">每页 {pageSize} 条</span>
+                    <span className="text-slate-400">
+                        第 {currentPage} / {totalPages} 页
+                    </span>
 
-                <button
-                    type="button"
-                    disabled={currentPage >= totalPages}
-                    onClick={() => setPage((value) => Math.min(value + 1, totalPages))}
-                    className="rounded-full border border-white/10 bg-white/5 px-4 py-2 transition hover:text-white disabled:border-white/5 disabled:bg-white/2 disabled:text-slate-600"
-                >
-                    下一页
-                </button>
+                    <button
+                        type="button"
+                        disabled={currentPage >= totalPages}
+                        onClick={() => setPage((value) => Math.min(value + 1, totalPages))}
+                        className="rounded-full border border-white/10 bg-white/5 px-4 py-2 transition hover:text-white disabled:border-white/5 disabled:bg-white/2 disabled:text-slate-600"
+                    >
+                        下一页
+                    </button>
+                </div>
+                <span className="text-slate-500">每页 {pageSize} 条</span>
             </div>
         </div>
     );
