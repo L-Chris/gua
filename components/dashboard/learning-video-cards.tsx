@@ -17,62 +17,55 @@ export function LearningVideoCards({ videos }: { videos: LearningVideo[] }) {
     }
 
     return (
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className="space-y-3">
             {videos.map((video) => (
                 <article
                     key={video.bvid}
-                    className="overflow-hidden rounded-[28px] border border-white/10 bg-slate-950/50 shadow-[0_18px_60px_rgba(15,23,42,0.18)]"
+                    className="flex gap-3 rounded-3xl border border-white/10 bg-slate-950/50 p-3"
                 >
-                    <div className="relative h-44 w-full overflow-hidden bg-slate-900">
+                    <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-2xl bg-slate-900">
                         {video.coverUrl ? (
                             <Image
                                 src={video.coverUrl}
                                 alt={video.title}
                                 fill
-                                sizes="(min-width: 1280px) 40vw, 100vw"
-                                className="object-cover opacity-80"
+                                sizes="128px"
+                                className="object-cover"
                             />
                         ) : null}
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/30 to-transparent" />
-                        <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-4">
-                            <div>
-                                <h3 className="line-clamp-2 text-lg font-semibold text-white">
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                        <div className="flex items-start gap-3">
+                            <div className="min-w-0 flex-1">
+                                <h3 className="line-clamp-2 text-sm font-semibold leading-5 text-white">
                                     {video.title}
                                 </h3>
+                                <p className="mt-1 truncate text-xs text-slate-400">
+                                    {video.creatorName} · {formatDateTime(video.publishAt, "yyyy/MM/dd")}
+                                </p>
                             </div>
                             <a
                                 href={`https://www.bilibili.com/video/${video.bvid}`}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/30 text-white transition hover:bg-black/50"
+                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition hover:text-white"
                             >
-                                <ExternalLink className="h-4 w-4" />
+                                <ExternalLink className="h-3.5 w-3.5" />
                             </a>
                         </div>
-                    </div>
-                    <div className="space-y-4 p-5">
-                        <div className="flex flex-wrap gap-2 text-xs text-slate-300">
-                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                                {video.creatorName}
-                            </span>
-                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+
+                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-300">
+                            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
                                 {formatCompactNumber(video.play)} 播放
                             </span>
-                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">
                                 {formatPercent(video.engagementRate)} 互动率
                             </span>
-                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                                {formatDateTime(video.publishAt, "yyyy-MM-dd")}
-                            </span>
-                        </div>
-                        <p className="text-sm leading-6 text-slate-300">
-                            {video.reason}
-                        </p>
-                        <div className="flex flex-wrap gap-2 text-xs text-slate-300">
-                            {video.tags.slice(0, 3).map((tag) => (
+                            {video.tags.slice(0, 2).map((tag) => (
                                 <span
                                     key={tag}
-                                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1"
+                                    className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1"
                                 >
                                     #{tag}
                                 </span>

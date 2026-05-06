@@ -12,11 +12,13 @@ type CreatorFilter = {
 type CreatorFilterSelectProps = {
     creators: CreatorFilter[];
     selectedCreatorMid?: string;
+    selectedLibrarySort: "publishAtDesc" | "playDesc";
 };
 
 export function CreatorFilterSelect({
     creators,
     selectedCreatorMid,
+    selectedLibrarySort,
 }: CreatorFilterSelectProps) {
     const router = useRouter();
     const [keyword, setKeyword] = useState("");
@@ -33,18 +35,23 @@ export function CreatorFilterSelect({
         );
     }, [creators, keyword]);
 
-    function handleChange(value: string) {
-        if (!value) {
-            router.push("/");
-            return;
+    function pushFilters(creatorMid: string | undefined, librarySort: "publishAtDesc" | "playDesc") {
+        const params = new URLSearchParams();
+
+        if (creatorMid) {
+            params.set("creatorMid", creatorMid);
         }
 
-        const params = new URLSearchParams({ creatorMid: value });
-        router.push(`/?${params.toString()}`);
+        if (librarySort !== "publishAtDesc") {
+            params.set("librarySort", librarySort);
+        }
+
+        const query = params.toString();
+        router.push(query ? `/?${query}` : "/");
     }
 
     return (
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)]">
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)_minmax(180px,220px)]">
             <input
                 type="search"
                 value={keyword}
@@ -54,7 +61,7 @@ export function CreatorFilterSelect({
             />
             <select
                 value={selectedCreatorMid ?? ""}
-                onChange={(event) => handleChange(event.target.value)}
+                onChange={(event) => pushFilters(event.target.value || undefined, selectedLibrarySort)}
                 className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none transition focus:border-emerald-300/40"
             >
                 <option value="">全部 UP 主 · {creators.length}</option>
@@ -63,6 +70,19 @@ export function CreatorFilterSelect({
                         {creator.name} · {creator.videoCount}
                     </option>
                 ))}
+            </select>
+            <select
+                value={selectedLibrarySort}
+                onChange={(event) =>
+                    pushFilters(
+                        selectedCreatorMid,
+                        event.target.value === "playDesc" ? "playDesc" : "publishAtDesc",
+                    )
+                }
+                className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none transition focus:border-emerald-300/40"
+            >
+                <option value="publishAtDesc">最新发布</option>
+                <option value="playDesc">播放量降序</option>
             </select>
         </div>
     );

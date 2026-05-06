@@ -44,7 +44,7 @@ export function TopCreatorList({ creators }: { creators: CreatorSummary[] }) {
                         </p>
                         <p className="text-xs text-slate-400">
                             最近发布：
-                            {formatDateTime(creator.latestPublishAt, "MM-dd")}
+                            {formatDateTime(creator.latestPublishAt, "yyyy/MM/dd")}
                         </p>
                     </div>
                     <div className="text-right text-xs text-slate-300">

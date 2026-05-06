@@ -31,6 +31,7 @@ export type DashboardVideo = {
   tags: unknown;
   title: string;
   typeName: string | null;
+  videoTags: { id: string; name: string }[];
 };
 
 export type TagSummary = {

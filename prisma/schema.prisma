@@ -49,11 +49,20 @@ model Video {
   lastSyncedAt   DateTime @default(now())
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  videoTags      Tag[]
 
   @@index([publishAt(sort: Desc)])
   @@index([play(sort: Desc)])
   @@index([creatorId, publishAt(sort: Desc)])
   @@index([typeName])
+}
+
+model Tag {
+  id     String  @id @default(cuid())
+  name   String  @unique
+  videos Video[]
+
+  @@index([name])
 }
 
 model SyncRun {

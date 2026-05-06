@@ -21,6 +21,7 @@ import { prisma } from "@/lib/prisma";
 import { bilibiliQueue } from "@/lib/queue";
 
 let syncRunning = false;
+const interactiveVideoTagId = "10500";
 
 export type SyncOptions = {
     keywords?: string[];
@@ -100,6 +101,9 @@ async function syncCandidateVideo(bvid: string, candidate: CandidateVideo) {
             sourceKeywords: true,
             subtitle: true,
             tags: true,
+            videoTags: {
+                select: { id: true },
+            },
         },
     });
     const ownerMid = String(info.owner?.mid ?? candidate.item.mid ?? bvid);
@@ -215,6 +219,20 @@ async function syncCandidateVideo(bvid: string, candidate: CandidateVideo) {
             typeName: info.tname?.trim() || candidate.item.typename?.trim() || null,
         },
     });
+
+    if (
+        info.rights?.is_stein_gate === 1 &&
+        !existing?.videoTags.some((tag) => tag.id === interactiveVideoTagId)
+    ) {
+        await prisma.video.update({
+            where: { bvid },
+            data: {
+                videoTags: {
+                    connect: { id: interactiveVideoTagId },
+                },
+            },
+        });
+    }
 
     return existing ? "updated" : "created";
 }

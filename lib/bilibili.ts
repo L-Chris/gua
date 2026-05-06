@@ -40,6 +40,9 @@ export type BilibiliVideoInfo = {
   };
   pic?: string;
   pubdate?: number;
+  rights?: {
+    is_stein_gate?: number;
+  };
   stat?: {
     coin?: number;
     danmaku?: number;
