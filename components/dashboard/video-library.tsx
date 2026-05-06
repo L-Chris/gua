@@ -75,7 +75,7 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
 
             if (normalizedTagKeyword) {
                 const sourceTags = jsonStringArray(video.tags);
-                const customTags = video.videoTags.map((tag) => tag.name);
+                const customTags = video.videoTags.map((vt) => vt.tag.name);
                 const allTagNames = [...sourceTags, ...customTags];
                 const tagMatched = allTagNames.some((tag) =>
                     normalizeKeyword(tag).includes(normalizedTagKeyword),
@@ -149,7 +149,7 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
                         }
 
                         const alreadyHasTag = video.videoTags.some(
-                            (t) => t.id === applied.tagId,
+                            (vt) => vt.tag.id === applied.tagId,
                         );
                         if (alreadyHasTag) {
                             return video;
@@ -159,7 +159,7 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
                             ...video,
                             videoTags: [
                                 ...video.videoTags,
-                                { id: applied.tagId, name: applied.tagName },
+                                { source: "ai", tag: { id: applied.tagId, name: applied.tagName } },
                             ],
                         };
                     }),
@@ -181,7 +181,7 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
                         if (video.bvid !== bvid) return video;
 
                         const alreadyHasTag = video.videoTags.some(
-                            (t) => t.id === applied.tagId,
+                            (vt) => vt.tag.id === applied.tagId,
                         );
                         if (alreadyHasTag) return video;
 
@@ -189,7 +189,7 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
                             ...video,
                             videoTags: [
                                 ...video.videoTags,
-                                { id: applied.tagId, name: applied.tagName },
+                                { source: "ai", tag: { id: applied.tagId, name: applied.tagName } },
                             ],
                         };
                     }),
@@ -207,11 +207,11 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
                     return video;
                 }
 
-                const existingIndex = video.videoTags.findIndex((t) => t.id === tagId);
+                const existingIndex = video.videoTags.findIndex((vt) => vt.tag.id === tagId);
                 const nextVideoTags =
                     existingIndex === -1
-                        ? [...video.videoTags, { id: tagId, name: tagName }]
-                        : video.videoTags.filter((t) => t.id !== tagId);
+                        ? [...video.videoTags, { source: "manual", tag: { id: tagId, name: tagName } }]
+                        : video.videoTags.filter((vt) => vt.tag.id !== tagId);
 
                 return { ...video, videoTags: nextVideoTags };
             }),

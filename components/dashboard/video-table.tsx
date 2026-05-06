@@ -188,17 +188,26 @@ export function VideoTable({
                                             {singleAiTagBvid === video.bvid ? "AI 标注中..." : "✨ AI 标注"}
                                         </button>
                                     ) : null}
-                                    {video.videoTags.map((tag) => (
-                                        <button
-                                            key={tag.id}
-                                            type="button"
-                                            disabled={pendingBvid === video.bvid}
-                                            onClick={() => handleToggleTag(video.bvid, tag.id, tag.name)}
-                                            className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-cyan-100 transition hover:bg-cyan-300/20"
-                                        >
-                                            {tag.name} ×
-                                        </button>
-                                    ))}
+                                    {video.videoTags.map((vt) => {
+                                        const isAi = vt.source === "ai";
+                                        return (
+                                            <button
+                                                key={vt.tag.id}
+                                                type="button"
+                                                disabled={pendingBvid === video.bvid}
+                                                onClick={() =>
+                                                    handleToggleTag(video.bvid, vt.tag.id, vt.tag.name)
+                                                }
+                                                className={`rounded-full border px-2.5 py-1 text-xs transition hover:opacity-80 ${
+                                                    isAi
+                                                        ? "border-pink-300/20 bg-pink-300/10 text-pink-100"
+                                                        : "border-cyan-300/20 bg-cyan-300/10 text-cyan-100"
+                                                }`}
+                                            >
+                                                {vt.tag.name} ×
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                                 <div className="relative" data-tag-dropdown-bvid={video.bvid}>
                                     <button
@@ -216,7 +225,7 @@ export function VideoTable({
                                             {allTags
                                                 .filter(
                                                     (tag) =>
-                                                        !video.videoTags.some((vt) => vt.id === tag.id),
+                                                        !video.videoTags.some((vt) => vt.tag.id === tag.id),
                                                 )
                                                 .map((tag) => (
                                                     <button
@@ -231,7 +240,7 @@ export function VideoTable({
                                                     </button>
                                                 ))}
                                             {allTags.filter(
-                                                (tag) => !video.videoTags.some((vt) => vt.id === tag.id),
+                                                (tag) => !video.videoTags.some((vt) => vt.tag.id === tag.id),
                                             ).length === 0 ? (
                                                 <p className="px-3 py-2 text-xs text-slate-500">
                                                     没有更多标签

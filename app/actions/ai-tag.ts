@@ -53,7 +53,10 @@ export async function aiAutoTag(bvids: string[]): Promise<{
                 subtitle: true,
                 tags: true,
                 videoTags: {
-                    select: { id: true, name: true },
+                    select: {
+                        source: true,
+                        tag: { select: { id: true, name: true } },
+                    },
                 },
             },
         }),
@@ -68,7 +71,10 @@ export async function aiAutoTag(bvids: string[]): Promise<{
                 subtitle: true,
                 tags: true,
                 videoTags: {
-                    select: { id: true, name: true },
+                    select: {
+                        source: true,
+                        tag: { select: { id: true, name: true } },
+                    },
                 },
             },
         }),
@@ -77,11 +83,11 @@ export async function aiAutoTag(bvids: string[]): Promise<{
     const taggedByTag = new Map<string, typeof allTaggedVideos>();
     for (const video of allTaggedVideos) {
         if (bvids.includes(video.bvid)) continue;
-        for (const tag of video.videoTags) {
-            const bucket = taggedByTag.get(tag.id) ?? [];
+        for (const vt of video.videoTags) {
+            const bucket = taggedByTag.get(vt.tag.id) ?? [];
             if (bucket.length < 10) {
                 bucket.push(video);
-                taggedByTag.set(tag.id, bucket);
+                taggedByTag.set(vt.tag.id, bucket);
             }
         }
     }
@@ -102,7 +108,7 @@ export async function aiAutoTag(bvids: string[]): Promise<{
                 title: video.cleanTitle,
                 description: video.description,
                 subtitle: video.subtitle,
-                tags: video.videoTags.map((t) => t.name),
+                tags: video.videoTags.map((vt) => vt.tag.name),
             });
         }
     }
@@ -128,7 +134,7 @@ export async function aiAutoTag(bvids: string[]): Promise<{
                         `  标题: ${v.cleanTitle}`,
                         `  简介: ${v.description ?? ""}`,
                         `  字幕: ${v.subtitle ?? ""}`,
-                        `  已打标签: ${v.videoTags.map((t) => t.name).join(", ") || "无"}`,
+                        `  已打标签: ${v.videoTags.map((vt) => vt.tag.name).join(", ") || "无"}`,
                     ].join("\n"),
             )
             .join("\n\n"),
@@ -194,9 +200,19 @@ export async function aiAutoTag(bvids: string[]): Promise<{
             continue;
         }
 
-        await prisma.video.update({
-            where: { bvid: item.bvid },
-            data: { videoTags: { connect: { id: tagId } } },
+        await prisma.videoTag.upsert({
+            where: {
+                videoId_tagId: {
+                    videoId: item.bvid,
+                    tagId,
+                },
+            },
+            create: {
+                videoId: item.bvid,
+                tagId,
+                source: "ai",
+            },
+            update: {},
         });
 
         taggedCount += 1;

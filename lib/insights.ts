@@ -31,7 +31,7 @@ export type DashboardVideo = {
   tags: unknown;
   title: string;
   typeName: string | null;
-  videoTags: { id: string; name: string }[];
+  videoTags: { source: string; tag: { id: string; name: string } }[];
 };
 
 export type TagSummary = {
@@ -231,8 +231,8 @@ export function buildDashboardInsights(videos: DashboardVideo[]): DashboardInsig
       continue;
     }
 
-    for (const tag of video.videoTags) {
-      customTagMap.set(tag.name, (customTagMap.get(tag.name) ?? 0) + 1);
+    for (const vt of video.videoTags) {
+      customTagMap.set(vt.tag.name, (customTagMap.get(vt.tag.name) ?? 0) + 1);
     }
   }
 

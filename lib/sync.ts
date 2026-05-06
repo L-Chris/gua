@@ -103,10 +103,11 @@ async function syncCandidateVideo(bvid: string, candidate: CandidateVideo) {
             subtitle: true,
             tags: true,
             videoTags: {
-                select: { id: true },
+                select: { tagId: true },
             },
         },
     });
+    const existingVideoTagIds = new Set(existing?.videoTags.map((vt) => vt.tagId) ?? []);
     const ownerMid = String(info.owner?.mid ?? candidate.item.mid ?? bvid);
     const ownerName =
         info.owner?.name?.trim() || candidate.item.author?.trim() || "未知 UP";
@@ -138,7 +139,6 @@ async function syncCandidateVideo(bvid: string, candidate: CandidateVideo) {
         ...jsonStringArray(existing?.tags),
         ...sourceTags,
     ]);
-    const existingVideoTagIds = new Set(existing?.videoTags.map((tag) => tag.id) ?? []);
     const play = info.stat?.view ?? candidate.item.play ?? 0;
     const like = info.stat?.like ?? candidate.item.like ?? 0;
     const favorite = info.stat?.favorite ?? candidate.item.favorites ?? 0;
@@ -227,12 +227,11 @@ async function syncCandidateVideo(bvid: string, candidate: CandidateVideo) {
         info.rights?.is_stein_gate === 1 &&
         !existingVideoTagIds.has(interactiveVideoTagId)
     ) {
-        await prisma.video.update({
-            where: { bvid },
+        await prisma.videoTag.create({
             data: {
-                videoTags: {
-                    connect: { id: interactiveVideoTagId },
-                },
+                videoId: bvid,
+                tagId: interactiveVideoTagId,
+                source: "auto",
             },
         });
         existingVideoTagIds.add(interactiveVideoTagId);
@@ -242,12 +241,11 @@ async function syncCandidateVideo(bvid: string, candidate: CandidateVideo) {
         sourceTags.some((tag) => tag.includes("人力VOCALOID")) &&
         !existingVideoTagIds.has(humanVocaloidTagId)
     ) {
-        await prisma.video.update({
-            where: { bvid },
+        await prisma.videoTag.create({
             data: {
-                videoTags: {
-                    connect: { id: humanVocaloidTagId },
-                },
+                videoId: bvid,
+                tagId: humanVocaloidTagId,
+                source: "auto",
             },
         });
     }

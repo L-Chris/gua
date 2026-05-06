@@ -53,8 +53,8 @@ export default async function Home() {
                 },
                 videoTags: {
                     select: {
-                        id: true,
-                        name: true,
+                        source: true,
+                        tag: { select: { id: true, name: true } },
                     },
                 },
             },

@@ -12,38 +12,20 @@ export async function getAllTags() {
 }
 
 export async function toggleVideoTag(bvid: string, tagId: string) {
-    const video = await prisma.video.findUnique({
-        where: { bvid },
-        select: {
-            id: true,
-            videoTags: {
-                select: { id: true },
-            },
-        },
+    const existing = await prisma.videoTag.findUnique({
+        where: { videoId_tagId: { videoId: bvid, tagId } },
     });
 
-    if (!video) {
-        throw new Error("Video not found");
-    }
-
-    const hasTag = video.videoTags.some((tag) => tag.id === tagId);
-
-    if (hasTag) {
-        await prisma.video.update({
-            where: { bvid },
-            data: {
-                videoTags: {
-                    disconnect: { id: tagId },
-                },
-            },
+    if (existing) {
+        await prisma.videoTag.delete({
+            where: { videoId_tagId: { videoId: bvid, tagId } },
         });
     } else {
-        await prisma.video.update({
-            where: { bvid },
+        await prisma.videoTag.create({
             data: {
-                videoTags: {
-                    connect: { id: tagId },
-                },
+                videoId: bvid,
+                tagId,
+                source: "manual",
             },
         });
     }
