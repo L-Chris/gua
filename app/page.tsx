@@ -14,9 +14,11 @@ import { UploadTrendChart } from "@/components/charts/upload-trend-chart";
 import { LearningVideoCards } from "@/components/dashboard/learning-video-cards";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { SyncSubmitButton } from "@/components/dashboard/sync-submit-button";
+import { SubtitleBackfillButton } from "@/components/dashboard/subtitle-backfill-button";
 import { TopCreatorList } from "@/components/dashboard/top-creator-list";
 import { TopTagList } from "@/components/dashboard/top-tag-list";
 import { VideoLibrary } from "@/components/dashboard/video-library";
+import { triggerSubtitleBackfill } from "@/app/actions/subtitle-backfill";
 import { getAllTags } from "@/app/actions/tags";
 import {
     formatCompactNumber,
@@ -111,6 +113,9 @@ export default async function Home() {
 
                             <form action={syncVideoLibraryAction}>
                                 <SyncSubmitButton />
+                            </form>
+                            <form action={triggerSubtitleBackfill}>
+                                <SubtitleBackfillButton />
                             </form>
                         </div>
                     </div>

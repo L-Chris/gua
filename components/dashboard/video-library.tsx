@@ -37,6 +37,7 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
     const [page, setPage] = useState(1);
     const [selectedBvids, setSelectedBvids] = useState<Set<string>>(new Set());
     const [aiTagging, setAiTagging] = useState(false);
+    const [singleAiTagBvid, setSingleAiTagBvid] = useState<string | null>(null);
 
     const filteredCreators = useMemo(() => {
         const keyword = creatorKeyword.trim().toLowerCase();
@@ -169,6 +170,36 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
         }
     }
 
+    async function handleSingleAiTag(bvid: string) {
+        setSingleAiTagBvid(bvid);
+        try {
+            const result = await aiAutoTag([bvid]);
+            if (result.appliedTags.length > 0) {
+                const applied = result.appliedTags[0];
+                setVideos((prev) =>
+                    prev.map((video) => {
+                        if (video.bvid !== bvid) return video;
+
+                        const alreadyHasTag = video.videoTags.some(
+                            (t) => t.id === applied.tagId,
+                        );
+                        if (alreadyHasTag) return video;
+
+                        return {
+                            ...video,
+                            videoTags: [
+                                ...video.videoTags,
+                                { id: applied.tagId, name: applied.tagName },
+                            ],
+                        };
+                    }),
+                );
+            }
+        } finally {
+            setSingleAiTagBvid(null);
+        }
+    }
+
     function handleToggleTag(bvid: string, tagId: string, tagName: string) {
         setVideos((prev) =>
             prev.map((video) => {
@@ -269,7 +300,7 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
                 </div>
             </div>
 
-            <VideoTable videos={pagedVideos} allTags={allTags} onToggleTag={handleToggleTag} selectedBvids={selectedBvids} onToggleSelect={handleToggleSelect} />
+            <VideoTable videos={pagedVideos} allTags={allTags} onToggleTag={handleToggleTag} selectedBvids={selectedBvids} onToggleSelect={handleToggleSelect} onSingleAiTag={handleSingleAiTag} singleAiTagBvid={singleAiTagBvid} />
 
             <div className="mt-5 flex flex-col items-center gap-2 text-sm text-slate-300">
                 <div className="flex items-center gap-3">

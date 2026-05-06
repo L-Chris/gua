@@ -19,12 +19,16 @@ export function VideoTable({
     onToggleTag,
     selectedBvids,
     onToggleSelect,
+    onSingleAiTag,
+    singleAiTagBvid,
 }: {
     videos: DashboardVideo[];
     allTags: TagRecord[];
     onToggleTag: (bvid: string, tagId: string, tagName: string) => void;
     selectedBvids: Set<string>;
     onToggleSelect: (bvid: string) => void;
+    onSingleAiTag: (bvid: string) => void;
+    singleAiTagBvid: string | null;
 }) {
     const [openBvid, setOpenBvid] = useState<string | null>(null);
     const [pendingBvid, setPendingBvid] = useState<string | null>(null);
@@ -174,6 +178,16 @@ export function VideoTable({
                                             #{tag}
                                         </span>
                                     ))}
+                                    {video.videoTags.length === 0 ? (
+                                        <button
+                                            type="button"
+                                            disabled={singleAiTagBvid === video.bvid}
+                                            onClick={() => onSingleAiTag(video.bvid)}
+                                            className="rounded-full border border-violet-300/20 bg-violet-300/10 px-2.5 py-1 text-xs text-violet-100 transition hover:bg-violet-300/20 disabled:opacity-50"
+                                        >
+                                            {singleAiTagBvid === video.bvid ? "AI 标注中..." : "✨ AI 标注"}
+                                        </button>
+                                    ) : null}
                                     {video.videoTags.map((tag) => (
                                         <button
                                             key={tag.id}

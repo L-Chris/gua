@@ -11,6 +11,6 @@ import PQueue from "p-queue";
  */
 export const bilibiliQueue = new PQueue({
     concurrency: 1,
-    interval: 5000,
+    interval: 10000,
     intervalCap: 1,
 });
