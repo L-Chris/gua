@@ -14,6 +14,7 @@ type CreatorFilter = {
 };
 
 type LibrarySort = "playDesc" | "publishAtDesc";
+type TagStatusFilter = "all" | "ai" | "manual" | "untagged";
 
 type VideoLibraryProps = {
     creators: CreatorFilter[];
@@ -34,6 +35,7 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
     const [tagKeyword, setTagKeyword] = useState("");
     const [selectedCreatorMid, setSelectedCreatorMid] = useState("");
     const [librarySort, setLibrarySort] = useState<LibrarySort>("playDesc");
+    const [tagStatus, setTagStatus] = useState<TagStatusFilter>("all");
     const [page, setPage] = useState(1);
     const [selectedBvids, setSelectedBvids] = useState<Set<string>>(new Set());
     const [aiTagging, setAiTagging] = useState(false);
@@ -86,6 +88,18 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
                 }
             }
 
+            if (tagStatus !== "all") {
+                if (tagStatus === "untagged" && video.videoTags.length > 0) {
+                    return false;
+                }
+                if (tagStatus === "ai" && !video.videoTags.some((vt) => vt.source === "ai")) {
+                    return false;
+                }
+                if (tagStatus === "manual" && !video.videoTags.some((vt) => vt.source === "manual")) {
+                    return false;
+                }
+            }
+
             return true;
         });
 
@@ -96,7 +110,7 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
 
             return new Date(right.publishAt).getTime() - new Date(left.publishAt).getTime();
         });
-    }, [videos, selectedCreatorMid, titleKeyword, tagKeyword, librarySort]);
+    }, [videos, selectedCreatorMid, titleKeyword, tagKeyword, librarySort, tagStatus]);
 
     const totalPages = Math.max(1, Math.ceil(filteredVideos.length / pageSize));
     const currentPage = Math.min(page, totalPages);
@@ -112,6 +126,11 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
 
     function handleSortChange(value: string) {
         setLibrarySort(value === "playDesc" ? "playDesc" : "publishAtDesc");
+        setPage(1);
+    }
+
+    function handleTagStatusChange(value: string) {
+        setTagStatus(value as TagStatusFilter);
         setPage(1);
     }
 
@@ -249,7 +268,7 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
                     ) : null}
                 </div>
 
-                <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(220px,320px)_minmax(180px,220px)]">
+                <div className="grid gap-3 lg:grid-cols-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(200px,280px)_minmax(160px,200px)_minmax(160px,200px)]">
                     <input
                         type="search"
                         value={creatorKeyword}
@@ -296,6 +315,16 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
                     >
                         <option value="playDesc">播放量降序</option>
                         <option value="publishAtDesc">最新发布</option>
+                    </select>
+                    <select
+                        value={tagStatus}
+                        onChange={(event) => handleTagStatusChange(event.target.value)}
+                        className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none transition focus:border-emerald-300/40"
+                    >
+                        <option value="all">全部标签状态</option>
+                        <option value="untagged">未打标签</option>
+                        <option value="manual">人工标注</option>
+                        <option value="ai">AI 标注</option>
                     </select>
                 </div>
             </div>

@@ -229,8 +229,8 @@ async function syncCandidateVideo(bvid: string, candidate: CandidateVideo) {
     ) {
         await prisma.videoTag.create({
             data: {
-                videoId: bvid,
-                tagId: interactiveVideoTagId,
+                video: { connect: { bvid } },
+                tag: { connect: { id: interactiveVideoTagId } },
                 source: "auto",
             },
         });
@@ -243,8 +243,8 @@ async function syncCandidateVideo(bvid: string, candidate: CandidateVideo) {
     ) {
         await prisma.videoTag.create({
             data: {
-                videoId: bvid,
-                tagId: humanVocaloidTagId,
+                video: { connect: { bvid } },
+                tag: { connect: { id: humanVocaloidTagId } },
                 source: "auto",
             },
         });

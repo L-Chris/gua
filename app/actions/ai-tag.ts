@@ -188,8 +188,24 @@ export async function aiAutoTag(bvids: string[]): Promise<{
     let skippedCount = 0;
     const appliedTags: AppliedTag[] = [];
 
+    const videoIdMap = new Map<string, string>();
+    const videoRecords = await prisma.video.findMany({
+        where: { bvid: { in: bvids } },
+        select: { id: true, bvid: true },
+    });
+
+    for (const v of videoRecords) {
+        videoIdMap.set(v.bvid, v.id);
+    }
+
     for (const item of parsed.suggestions) {
         if (!bvids.includes(item.bvid)) {
+            continue;
+        }
+
+        const videoId = videoIdMap.get(item.bvid);
+        if (!videoId) {
+            skippedCount += 1;
             continue;
         }
 
@@ -203,13 +219,13 @@ export async function aiAutoTag(bvids: string[]): Promise<{
         await prisma.videoTag.upsert({
             where: {
                 videoId_tagId: {
-                    videoId: item.bvid,
+                    videoId,
                     tagId,
                 },
             },
             create: {
-                videoId: item.bvid,
-                tagId,
+                video: { connect: { bvid: item.bvid } },
+                tag: { connect: { id: tagId } },
                 source: "ai",
             },
             update: {},
