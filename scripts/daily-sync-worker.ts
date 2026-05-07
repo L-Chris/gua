@@ -7,18 +7,20 @@ function toPositiveInt(value: string | undefined, fallback: number) {
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-const initialDelayMinutes = toPositiveInt(process.env.DAILY_SYNC_INITIAL_DELAY_MINUTES, 5);
+function msUntilNextMidnight() {
+    const now = new Date();
+    const next = new Date(now);
+    next.setHours(24, 0, 0, 0);
+    return next.getTime() - now.getTime();
+}
+
 const subtitleBatchSize = toPositiveInt(process.env.DAILY_SUBTITLE_BATCH_SIZE, 200);
-const intervalHours = 24;
-const intervalMs = intervalHours * 60 * 60 * 1000;
 
 let stopping = false;
 let timer: NodeJS.Timeout | null = null;
 
-async function runOnce() {
-    if (stopping) {
-        return;
-    }
+async function runDaily() {
+    if (stopping) return;
 
     try {
         console.info("[daily-sync-worker] starting video sync");
@@ -33,10 +35,10 @@ async function runOnce() {
             `[daily-sync-worker] subtitle backfill done found=${subtitleResult.foundCount} subtitle=${subtitleResult.subtitleCount} failed=${subtitleResult.failedCount}`,
         );
     } catch (error) {
-        console.warn("[daily-sync-worker] run failed", error);
+        console.warn("[daily-sync-worker] daily run failed", error);
     } finally {
         if (!stopping) {
-            timer = setTimeout(runOnce, intervalMs);
+            timer = setTimeout(runDaily, msUntilNextMidnight());
         }
     }
 }
@@ -45,9 +47,7 @@ async function shutdown(signal: string) {
     console.info(`[daily-sync-worker] received ${signal}, shutting down`);
     stopping = true;
 
-    if (timer) {
-        clearTimeout(timer);
-    }
+    if (timer) clearTimeout(timer);
 
     await prisma.$disconnect();
     process.exit(0);
@@ -61,8 +61,10 @@ process.on("SIGINT", () => {
     void shutdown("SIGINT");
 });
 
+const delayMinutes = Math.round(msUntilNextMidnight() / 60000);
+
 console.info(
-    `[daily-sync-worker] started initialDelay=${initialDelayMinutes}m interval=${intervalHours}h subtitleBatch=${subtitleBatchSize}`,
+    `[daily-sync-worker] started schedule=midnight_daily(next=${delayMinutes}m) subtitleBatch=${subtitleBatchSize}`,
 );
 
-timer = setTimeout(runOnce, initialDelayMinutes * 60 * 1000);
+timer = setTimeout(runDaily, msUntilNextMidnight());

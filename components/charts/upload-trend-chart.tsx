@@ -57,7 +57,7 @@ export function UploadTrendChart({ data }: { data: TrendPoint[] }) {
               if (name === "videoCount") return [`${value} 条`, "投稿量"];
               return [value.toLocaleString("zh-CN"), "总播放"];
             }}
-            labelFormatter={(label) => `月份：${label}`}
+            labelFormatter={(label) => `季度：${label}`}
           />
           <Bar dataKey="videoCount" yAxisId="left" fill="#34d399" radius={[10, 10, 0, 0]} maxBarSize={36} />
           <Line

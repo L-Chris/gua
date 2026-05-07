@@ -87,54 +87,13 @@ export default async function Home() {
         <main className="px-4 py-6 md:px-8 lg:px-10 lg:py-8">
             <div className="mx-auto flex max-w-7xl flex-col gap-6">
                 <section className="overflow-hidden rounded-[36px] border border-white/10 bg-white/6 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.25)] backdrop-blur md:p-8">
-                    <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
-                        <div>
-                            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-emerald-300">
-                                HuaQiang Idea Radar
-                            </p>
-                            <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-white md:text-6xl">
-                                华强买瓜素材雷达
-                            </h1>
-                        </div>
-
-                        <div className="flex min-w-72 flex-col gap-4 rounded-4xl border border-white/10 bg-slate-950/50 p-5">
-                            <div>
-                                <p className="text-sm font-medium text-emerald-300">
-                                    视频同步
-                                </p>
-                                <p className="mt-1 text-lg font-semibold text-white">
-                                    {syncStatusLabel(lastSync?.status)}
-                                </p>
-                                <p className="mt-0.5 text-xs leading-5 text-slate-400">
-                                    {lastSync
-                                        ? formatDateTime(lastSync.finishedAt ?? lastSync.startedAt)
-                                        : "——"}
-                                </p>
-                                {lastSync?.message ? (
-                                    <p className="mt-1 text-xs leading-5 text-slate-500 line-clamp-2">
-                                        {lastSync.message}
-                                    </p>
-                                ) : null}
-                            </div>
-                            <div className="border-t border-white/8 pt-4">
-                                <p className="text-sm font-medium text-fuchsia-300">
-                                    字幕回填
-                                </p>
-                                <p className="mt-1 text-lg font-semibold text-white">
-                                    {syncStatusLabel(lastSubtitle?.status)}
-                                </p>
-                                <p className="mt-0.5 text-xs leading-5 text-slate-400">
-                                    {lastSubtitle
-                                        ? formatDateTime(lastSubtitle.finishedAt ?? lastSubtitle.startedAt)
-                                        : "——"}
-                                </p>
-                                {lastSubtitle?.message ? (
-                                    <p className="mt-1 text-xs leading-5 text-slate-500 line-clamp-2">
-                                        {lastSubtitle.message}
-                                    </p>
-                                ) : null}
-                            </div>
-                        </div>
+                    <div>
+                        <p className="text-sm font-semibold uppercase tracking-[0.28em] text-emerald-300">
+                            HuaQiang Idea Radar
+                        </p>
+                        <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-white md:text-6xl">
+                            华强买瓜素材雷达
+                        </h1>
                     </div>
                 </section>
 
@@ -143,11 +102,16 @@ export default async function Home() {
                         accentClassName="bg-emerald-300/10 text-emerald-100"
                         hint={
                             insights.totals.totalVideos > 0
-                                ? `最近同步：${formatDateTime(lastSync?.startedAt ?? new Date())}`
+                                ? `收录了 ${insights.totals.totalVideos} 个视频素材`
                                 : "等待首次同步"
                         }
                         icon={<Film className="h-5 w-5" />}
                         label="收录视频"
+                        secondaryHint={
+                            lastSync
+                                ? `视频同步：${syncStatusLabel(lastSync.status)} · ${formatDateTime(lastSync.finishedAt ?? lastSync.startedAt)}${lastSync.message ? ` · ${lastSync.message}` : ""}`
+                                : "视频同步：尚未运行"
+                        }
                         value={String(insights.totals.totalVideos)}
                     />
                     <MetricCard
@@ -169,6 +133,11 @@ export default async function Home() {
                         hint={`平均时长 ${formatDurationFromSeconds(Math.round(insights.totals.averageDurationSeconds))}`}
                         icon={<Captions className="h-5 w-5" />}
                         label="AI 字幕覆盖"
+                        secondaryHint={
+                            lastSubtitle
+                                ? `字幕回填：${syncStatusLabel(lastSubtitle.status)} · ${formatDateTime(lastSubtitle.finishedAt ?? lastSubtitle.startedAt)}${lastSubtitle.message ? ` · ${lastSubtitle.message}` : ""}`
+                                : "字幕回填：尚未运行"
+                        }
                         value={formatPercent(insights.totals.subtitleCoverage)}
                     />
                 </section>
@@ -181,7 +150,7 @@ export default async function Home() {
                                     趋势总览
                                 </p>
                                 <h2 className="mt-1 text-2xl font-semibold text-white">
-                                    月度投稿与播放走势
+                                    季度投稿与播放走势
                                 </h2>
                             </div>
                             <BarChart3 className="h-5 w-5 text-emerald-200" />

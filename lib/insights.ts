@@ -41,7 +41,7 @@ export type TagSummary = {
 
 export type TrendPoint = {
   label: string;
-  month: string;
+  key: string;
   totalPlay: number;
   videoCount: number;
 };
@@ -182,23 +182,25 @@ export function buildDashboardInsights(videos: DashboardVideo[]): DashboardInsig
 
   const trendMap = new Map<string, TrendPoint>();
   for (const video of videos) {
-    const month = `${video.publishAt.getFullYear()}-${String(video.publishAt.getMonth() + 1).padStart(2, "0")}`;
-    const label = `${video.publishAt.getFullYear()} / ${String(video.publishAt.getMonth() + 1).padStart(2, "0")}`;
-    const current = trendMap.get(month);
+    const year = video.publishAt.getFullYear();
+    const quarter = Math.floor(video.publishAt.getMonth() / 3) + 1;
+    const key = `${year}-Q${quarter}`;
+    const label = `${year} Q${quarter}`;
+    const current = trendMap.get(key);
     if (current) {
       current.videoCount += 1;
       current.totalPlay += video.play;
     } else {
-      trendMap.set(month, {
+      trendMap.set(key, {
         label,
-        month,
+        key,
         totalPlay: video.play,
         videoCount: 1,
       });
     }
   }
 
-  const uploadTrend = [...trendMap.values()].sort((left, right) => left.month.localeCompare(right.month)).slice(-12);
+  const uploadTrend = [...trendMap.values()].sort((left, right) => left.key.localeCompare(right.key)).slice(-16);
 
   const durationBuckets: DurationBucket[] = [
     { label: "0-60 秒", count: 0 },

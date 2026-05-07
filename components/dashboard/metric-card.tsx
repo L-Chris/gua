@@ -6,12 +6,14 @@ export function MetricCard({
     hint,
     icon,
     label,
+    secondaryHint,
     value,
 }: {
     accentClassName?: string;
     hint: string;
     icon: ReactNode;
     label: string;
+    secondaryHint?: string;
     value: string;
 }) {
     return (
@@ -25,6 +27,11 @@ export function MetricCard({
                     <p className="mt-2 text-xs leading-6 text-slate-400">
                         {hint}
                     </p>
+                    {secondaryHint ? (
+                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                            {secondaryHint}
+                        </p>
+                    ) : null}
                 </div>
                 <div
                     className={clsx(
