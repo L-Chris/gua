@@ -14,6 +14,19 @@ function msUntilNextMidnight() {
     return next.getTime() - now.getTime();
 }
 
+function currentQuarterRange() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const quarter = Math.floor(now.getMonth() / 3) + 1;
+    const startMonth = (quarter - 1) * 3;
+    const endMonth = quarter * 3; // next quarter's first month = this quarter's end month
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const timeStart = `${year}-${pad(startMonth + 1)}-01`;
+    const lastDay = new Date(year, endMonth, 0).getDate();
+    const timeEnd = `${year}-${pad(endMonth)}-${pad(lastDay)}`;
+    return { timeStart, timeEnd };
+}
+
 const subtitleBatchSize = toPositiveInt(process.env.DAILY_SUBTITLE_BATCH_SIZE, 200);
 
 let stopping = false;
@@ -23,8 +36,9 @@ async function runDaily() {
     if (stopping) return;
 
     try {
-        console.info("[daily-sync-worker] starting video sync");
-        const result = await syncVideoLibrary();
+        const { timeStart, timeEnd } = currentQuarterRange();
+        console.info(`[daily-sync-worker] starting video sync ${timeStart} ~ ${timeEnd}`);
+        const result = await syncVideoLibrary({ timeStart, timeEnd });
         console.info(
             `[daily-sync-worker] video sync done created=${result.createdCount} updated=${result.updatedCount} fetched=${result.fetchedCount} deduped=${result.dedupedCount}`,
         );

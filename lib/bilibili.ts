@@ -85,12 +85,20 @@ async function requestJson<T>(path: string, init?: RequestInit) {
   return (await response.json()) as T;
 }
 
-export async function searchVideos(keyword: string, page = 1, pageSize = 10) {
+export async function searchVideos(
+  keyword: string,
+  page = 1,
+  pageSize = 10,
+  timeStart?: string,
+  timeEnd?: string,
+) {
   const query = new URLSearchParams({
     keyword,
     page: String(page),
     page_size: String(pageSize),
   });
+  if (timeStart) query.set("time_start", timeStart);
+  if (timeEnd) query.set("time_end", timeEnd);
 
   return requestJson<BilibiliSearchResponse>(`/api/video/search?${query.toString()}`);
 }

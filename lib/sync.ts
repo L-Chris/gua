@@ -24,6 +24,8 @@ export type SyncOptions = {
     keywords?: string[];
     pageSize?: number;
     pages?: number;
+    timeEnd?: string;
+    timeStart?: string;
 };
 
 export type SyncSummary = {
@@ -245,7 +247,7 @@ export async function syncVideoLibrary(
         for (const keyword of keywords) {
             for (let page = 1; page <= pages; page += 1) {
                 const response = (await bilibiliQueue.add(() =>
-                    searchVideos(keyword, page, pageSize),
+                    searchVideos(keyword, page, pageSize, options.timeStart, options.timeEnd),
                 )) as BilibiliSearchResponse;
                 fetchedCount += response.items.length;
 
@@ -291,7 +293,7 @@ export async function syncVideoLibrary(
                 createdCount,
                 fetchedCount,
                 finishedAt: new Date(),
-                message: `本次共处理 ${dedupedCount} 条符合标签条件的去重候选视频（新建 ${createdCount}，跳过 ${skippedCount}）。`,
+                message: `本次共处理 ${dedupedCount} 条符合标签条件的去重候选视频（新建 ${createdCount}，跳过 ${skippedCount}）。${options.timeStart ? ` 时间范围：${options.timeStart} ~ ${options.timeEnd || "至今"}` : ""}`,
                 status: "success",
                 subtitleCount,
                 updatedCount,
