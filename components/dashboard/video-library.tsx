@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import { jsonStringArray, type DashboardVideo } from "@/lib/insights";
 import { VideoTable } from "@/components/dashboard/video-table";
-import { aiAutoTag } from "@/app/actions/ai-tag";
+import { aiAutoTag, applyAiTags } from "@/app/actions/ai-tag";
 
 type TagRecord = { id: string; name: string };
 
@@ -40,6 +41,7 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
     const [selectedBvids, setSelectedBvids] = useState<Set<string>>(new Set());
     const [aiTagging, setAiTagging] = useState(false);
     const [singleAiTagBvid, setSingleAiTagBvid] = useState<string | null>(null);
+    const [aiPreview, setAiPreview] = useState<{ bvid: string; tagId: string; tagName: string }[] | null>(null);
 
     const filteredCreators = useMemo(() => {
         const keyword = creatorKeyword.trim().toLowerCase();
@@ -148,71 +150,49 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
 
     async function handleAiTagClick() {
         const bvidsToTag = [...selectedBvids];
-        if (bvidsToTag.length === 0) {
-            return;
-        }
+        if (bvidsToTag.length === 0) return;
 
         setAiTagging(true);
         try {
             const result = await aiAutoTag(bvidsToTag);
             setSelectedBvids(new Set());
-
-            if (result.appliedTags.length > 0) {
-                setVideos((prev) =>
-                    prev.map((video) => {
-                        const applied = result.appliedTags.find(
-                            (t) => t.bvid === video.bvid,
-                        );
-                        if (!applied) {
-                            return video;
-                        }
-
-                        const alreadyHasTag = video.videoTags.some(
-                            (vt) => vt.tag.id === applied.tagId,
-                        );
-                        if (alreadyHasTag) {
-                            return video;
-                        }
-
-                        return {
-                            ...video,
-                            videoTags: [
-                                ...video.videoTags,
-                                { source: "ai", tag: { id: applied.tagId, name: applied.tagName } },
-                            ],
-                        };
-                    }),
-                );
+            if (result.preview.length > 0) {
+                setAiPreview(result.preview);
             }
         } finally {
             setAiTagging(false);
         }
     }
 
+    async function handleConfirmAiTags() {
+        if (!aiPreview) return;
+        const preview = aiPreview;
+        setAiPreview(null);
+
+        await applyAiTags(preview);
+        setVideos((prev) =>
+            prev.map((video) => {
+                const item = preview.find((t) => t.bvid === video.bvid);
+                if (!item) return video;
+                const alreadyHasTag = video.videoTags.some((vt) => vt.tag.id === item.tagId);
+                if (alreadyHasTag) return video;
+                return {
+                    ...video,
+                    videoTags: [
+                        ...video.videoTags,
+                        { source: "ai", tag: { id: item.tagId, name: item.tagName } },
+                    ],
+                };
+            }),
+        );
+    }
+
     async function handleSingleAiTag(bvid: string) {
         setSingleAiTagBvid(bvid);
         try {
             const result = await aiAutoTag([bvid]);
-            if (result.appliedTags.length > 0) {
-                const applied = result.appliedTags[0];
-                setVideos((prev) =>
-                    prev.map((video) => {
-                        if (video.bvid !== bvid) return video;
-
-                        const alreadyHasTag = video.videoTags.some(
-                            (vt) => vt.tag.id === applied.tagId,
-                        );
-                        if (alreadyHasTag) return video;
-
-                        return {
-                            ...video,
-                            videoTags: [
-                                ...video.videoTags,
-                                { source: "ai", tag: { id: applied.tagId, name: applied.tagName } },
-                            ],
-                        };
-                    }),
-                );
+            if (result.preview.length > 0) {
+                setAiPreview(result.preview);
             }
         } finally {
             setSingleAiTagBvid(null);
@@ -357,6 +337,83 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
                 </div>
                 <span className="text-slate-500">每页 {pageSize} 条</span>
             </div>
+
+            {aiPreview ? (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setAiPreview(null)}>
+                    <div
+                        className="mx-4 w-full max-w-lg rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h3 className="text-lg font-semibold text-white">AI 标注建议</h3>
+                        <p className="mt-2 text-sm text-slate-400">
+                            AI 为 {aiPreview.length} 个视频推荐了以下标签，请确认是否标注
+                        </p>
+                        <div className="mt-4 max-h-72 overflow-auto space-y-3">
+                            {aiPreview.map((item) => {
+                                const video = videos.find((v) => v.bvid === item.bvid);
+                                return (
+                                    <a
+                                        key={item.bvid}
+                                        href={`https://www.bilibili.com/video/${item.bvid}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="group flex gap-3 rounded-xl border border-white/10 bg-white/5 p-3 transition hover:bg-white/10"
+                                    >
+                                        {video?.coverUrl ? (
+                                            <Image
+                                                src={video.coverUrl}
+                                                alt={video.cleanTitle}
+                                                width={80}
+                                                height={50}
+                                                className="h-12 w-20 shrink-0 rounded-lg object-cover"
+                                            />
+                                        ) : (
+                                            <div className="h-12 w-20 shrink-0 rounded-lg bg-slate-800" />
+                                        )}
+                                        <div className="min-w-0 flex-1">
+                                            <p className="truncate text-sm font-medium text-white">
+                                                {video?.cleanTitle ?? item.bvid}
+                                            </p>
+                                            <span className="mt-1 inline-block rounded-full border border-pink-300/20 bg-pink-300/10 px-2 py-0.5 text-xs text-pink-100">
+                                                {item.tagName}
+                                            </span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                setAiPreview((prev) =>
+                                                    prev ? prev.filter((p) => p.bvid !== item.bvid) : null,
+                                                );
+                                            }}
+                                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 text-slate-500 transition hover:border-red-300/30 hover:text-red-300"
+                                        >
+                                            ×
+                                        </button>
+                                    </a>
+                                );
+                            })}
+                        </div>
+                        <div className="mt-5 flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setAiPreview(null)}
+                                className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-slate-300 transition hover:bg-white/10"
+                            >
+                                取消
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmAiTags}
+                                className="flex-1 rounded-2xl bg-violet-400 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-violet-300"
+                            >
+                                确认标注
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }

@@ -1,6 +1,5 @@
 import { Prisma } from "@prisma/client";
 import {
-    getVideoInfo,
     normalizeImageUrl,
     normalizeTagList,
     parseDurationToSeconds,
@@ -9,7 +8,6 @@ import {
     stripHtml,
     type BilibiliSearchItem,
     type BilibiliSearchResponse,
-    type BilibiliVideoInfo,
 } from "@/lib/bilibili";
 import {
     defaultSyncKeywords,
@@ -21,8 +19,6 @@ import { prisma } from "@/lib/prisma";
 import { bilibiliQueue } from "@/lib/queue";
 
 let syncRunning = false;
-const interactiveVideoTagId = "10500";
-const humanVocaloidTagId = "10600";
 
 export type SyncOptions = {
     keywords?: string[];
@@ -91,9 +87,6 @@ function hasRequiredSyncTag(rawTag: string | undefined | null) {
 
 
 async function syncCandidateVideo(bvid: string, candidate: CandidateVideo) {
-    const info = (await bilibiliQueue.add(() =>
-        getVideoInfo(bvid),
-    )) as BilibiliVideoInfo;
     const existing = await prisma.video.findUnique({
         where: { bvid },
         select: {
@@ -102,29 +95,23 @@ async function syncCandidateVideo(bvid: string, candidate: CandidateVideo) {
             sourceKeywords: true,
             subtitle: true,
             tags: true,
-            videoTags: {
-                select: { tagId: true },
-            },
         },
     });
-    const existingVideoTagIds = new Set(existing?.videoTags.map((vt) => vt.tagId) ?? []);
-    const ownerMid = String(info.owner?.mid ?? candidate.item.mid ?? bvid);
-    const ownerName =
-        info.owner?.name?.trim() || candidate.item.author?.trim() || "未知 UP";
+
+    const item = candidate.item;
+    const ownerMid = String(item.mid ?? bvid);
+    const ownerName = item.author?.trim() || "未知 UP";
     const existingSubtitle = existing?.subtitle ?? null;
-    const durationSeconds =
-        info.duration && info.duration > 0
-            ? info.duration
-            : parseDurationToSeconds(candidate.item.duration);
+    const durationSeconds = parseDurationToSeconds(item.duration);
 
     const creator = await prisma.creator.upsert({
         where: { mid: ownerMid },
         update: {
-            faceUrl: normalizeImageUrl(info.owner?.face ?? candidate.item.upic),
+            faceUrl: normalizeImageUrl(item.upic),
             name: ownerName,
         },
         create: {
-            faceUrl: normalizeImageUrl(info.owner?.face ?? candidate.item.upic),
+            faceUrl: normalizeImageUrl(item.upic),
             mid: ownerMid,
             name: ownerName,
         },
@@ -134,21 +121,19 @@ async function syncCandidateVideo(bvid: string, candidate: CandidateVideo) {
         ...jsonStringArray(existing?.sourceKeywords),
         ...candidate.keywords,
     ]);
-    const sourceTags = normalizeTagList(candidate.item.tag);
+    const sourceTags = normalizeTagList(item.tag);
     const mergedTags = uniqueStrings([
         ...jsonStringArray(existing?.tags),
         ...sourceTags,
     ]);
-    const play = info.stat?.view ?? candidate.item.play ?? 0;
-    const like = info.stat?.like ?? candidate.item.like ?? 0;
-    const favorite = info.stat?.favorite ?? candidate.item.favorites ?? 0;
-    const share = info.stat?.share ?? 0;
-    const reply = info.stat?.reply ?? candidate.item.review ?? 0;
-    const videoTitle = stripHtml(info.title ?? candidate.item.title) || bvid;
-    const rawAid = info.aid ?? candidate.item.aid ?? null;
-    const publishAt = info.pubdate
-        ? new Date(info.pubdate * 1000)
-        : parseSearchDate(candidate.item.pubdate);
+    const play = item.play ?? 0;
+    const like = item.like ?? 0;
+    const favorite = item.favorites ?? 0;
+    const share = 0;
+    const reply = item.review ?? 0;
+    const videoTitle = stripHtml(item.title) || bvid;
+    const rawAid = item.aid ?? null;
+    const publishAt = parseSearchDate(item.pubdate);
 
     await prisma.video.upsert({
         where: { bvid },
@@ -156,12 +141,11 @@ async function syncCandidateVideo(bvid: string, candidate: CandidateVideo) {
             aid: rawAid === null ? null : String(rawAid),
             bvid,
             cleanTitle: videoTitle,
-            coverUrl: normalizeImageUrl(info.pic ?? candidate.item.pic),
+            coverUrl: normalizeImageUrl(item.pic),
             creatorId: creator.id,
-            description:
-                info.desc?.trim() || candidate.item.description?.trim() || null,
+            description: item.description?.trim() || null,
             durationLabel:
-                candidate.item.duration ||
+                item.duration ||
                 formatDurationFromSeconds(durationSeconds),
             durationSeconds,
             engagementRate: calculateEngagementRate(
@@ -177,25 +161,23 @@ async function syncCandidateVideo(bvid: string, candidate: CandidateVideo) {
             like,
             play,
             publishAt,
-            rawInfo: toJsonValue(info),
-            rawSearch: toJsonValue(candidate.item),
+            rawSearch: toJsonValue(item),
             reply,
             share,
             sourceKeywords: toJsonValue(mergedKeywords),
             subtitle: existingSubtitle,
             tags: toJsonValue(mergedTags),
-            title: info.title?.trim() || stripHtml(candidate.item.title) || videoTitle,
-            typeName: info.tname?.trim() || candidate.item.typename?.trim() || null,
+            title: stripHtml(item.title) || videoTitle,
+            typeName: item.typename?.trim() || null,
         },
         update: {
             aid: rawAid === null ? null : String(rawAid),
             cleanTitle: videoTitle,
-            coverUrl: normalizeImageUrl(info.pic ?? candidate.item.pic),
+            coverUrl: normalizeImageUrl(item.pic),
             creatorId: creator.id,
-            description:
-                info.desc?.trim() || candidate.item.description?.trim() || null,
+            description: item.description?.trim() || null,
             durationLabel:
-                candidate.item.duration ||
+                item.duration ||
                 formatDurationFromSeconds(durationSeconds),
             durationSeconds,
             engagementRate: calculateEngagementRate(
@@ -211,44 +193,16 @@ async function syncCandidateVideo(bvid: string, candidate: CandidateVideo) {
             like,
             play,
             publishAt,
-            rawInfo: toJsonValue(info),
-            rawSearch: toJsonValue(candidate.item),
+            rawSearch: toJsonValue(item),
             reply,
             share,
             sourceKeywords: toJsonValue(mergedKeywords),
             subtitle: existingSubtitle ?? existing?.subtitle ?? null,
             tags: toJsonValue(mergedTags),
-            title: info.title?.trim() || stripHtml(candidate.item.title) || videoTitle,
-            typeName: info.tname?.trim() || candidate.item.typename?.trim() || null,
+            title: stripHtml(item.title) || videoTitle,
+            typeName: item.typename?.trim() || null,
         },
     });
-
-    if (
-        info.rights?.is_stein_gate === 1 &&
-        !existingVideoTagIds.has(interactiveVideoTagId)
-    ) {
-        await prisma.videoTag.create({
-            data: {
-                video: { connect: { bvid } },
-                tag: { connect: { id: interactiveVideoTagId } },
-                source: "auto",
-            },
-        });
-        existingVideoTagIds.add(interactiveVideoTagId);
-    }
-
-    if (
-        sourceTags.some((tag) => tag.includes("人力VOCALOID")) &&
-        !existingVideoTagIds.has(humanVocaloidTagId)
-    ) {
-        await prisma.videoTag.create({
-            data: {
-                video: { connect: { bvid } },
-                tag: { connect: { id: humanVocaloidTagId } },
-                source: "auto",
-            },
-        });
-    }
 
     return existing ? "updated" : "created";
 }

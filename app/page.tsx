@@ -7,18 +7,14 @@ import {
     Sparkles,
     Users,
 } from "lucide-react";
-import { syncVideoLibraryAction } from "@/app/actions/sync";
 import { DurationDistributionChart } from "@/components/charts/duration-distribution-chart";
 import { TaggedVideoDistributionChart } from "@/components/charts/tagged-video-distribution-chart";
 import { UploadTrendChart } from "@/components/charts/upload-trend-chart";
 import { LearningVideoCards } from "@/components/dashboard/learning-video-cards";
 import { MetricCard } from "@/components/dashboard/metric-card";
-import { SyncSubmitButton } from "@/components/dashboard/sync-submit-button";
-import { SubtitleBackfillButton } from "@/components/dashboard/subtitle-backfill-button";
 import { TopCreatorList } from "@/components/dashboard/top-creator-list";
 import { TopTagList } from "@/components/dashboard/top-tag-list";
 import { VideoLibrary } from "@/components/dashboard/video-library";
-import { triggerSubtitleBackfill } from "@/app/actions/subtitle-backfill";
 import { getAllTags } from "@/app/actions/tags";
 import {
     formatCompactNumber,
@@ -32,15 +28,15 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 function syncStatusLabel(status: string | null | undefined) {
-    if (!status) return "尚未同步";
-    if (status === "success") return "同步成功";
-    if (status === "failed") return "同步失败";
-    if (status === "running") return "同步中";
+    if (!status) return "尚未运行";
+    if (status === "success") return "已完成";
+    if (status === "failed") return "失败";
+    if (status === "running") return "运行中";
     return status;
 }
 
 export default async function Home() {
-    const [videos, lastSync, allTags] = await Promise.all([
+    const [videos, lastSync, lastSubtitle, allTags] = await Promise.all([
         prisma.video.findMany({
             orderBy: [{ publishAt: "desc" }],
             include: {
@@ -60,6 +56,11 @@ export default async function Home() {
             },
         }),
         prisma.syncRun.findFirst({
+            where: { type: "sync" },
+            orderBy: { startedAt: "desc" },
+        }),
+        prisma.syncRun.findFirst({
+            where: { type: "subtitle_backfill" },
             orderBy: { startedAt: "desc" },
         }),
         getAllTags(),
@@ -98,25 +99,41 @@ export default async function Home() {
 
                         <div className="flex min-w-72 flex-col gap-4 rounded-4xl border border-white/10 bg-slate-950/50 p-5">
                             <div>
-                                <p className="text-sm font-medium text-slate-300">
-                                    最新同步
+                                <p className="text-sm font-medium text-emerald-300">
+                                    视频同步
                                 </p>
-                                <p className="mt-2 text-2xl font-semibold text-white">
+                                <p className="mt-1 text-lg font-semibold text-white">
                                     {syncStatusLabel(lastSync?.status)}
                                 </p>
-                                <p className="mt-2 text-sm leading-6 text-slate-400">
+                                <p className="mt-0.5 text-xs leading-5 text-slate-400">
                                     {lastSync
                                         ? formatDateTime(lastSync.finishedAt ?? lastSync.startedAt)
-                                        : "尚未同步"}
+                                        : "——"}
                                 </p>
+                                {lastSync?.message ? (
+                                    <p className="mt-1 text-xs leading-5 text-slate-500 line-clamp-2">
+                                        {lastSync.message}
+                                    </p>
+                                ) : null}
                             </div>
-
-                            <form action={syncVideoLibraryAction}>
-                                <SyncSubmitButton />
-                            </form>
-                            <form action={triggerSubtitleBackfill}>
-                                <SubtitleBackfillButton />
-                            </form>
+                            <div className="border-t border-white/8 pt-4">
+                                <p className="text-sm font-medium text-fuchsia-300">
+                                    字幕回填
+                                </p>
+                                <p className="mt-1 text-lg font-semibold text-white">
+                                    {syncStatusLabel(lastSubtitle?.status)}
+                                </p>
+                                <p className="mt-0.5 text-xs leading-5 text-slate-400">
+                                    {lastSubtitle
+                                        ? formatDateTime(lastSubtitle.finishedAt ?? lastSubtitle.startedAt)
+                                        : "——"}
+                                </p>
+                                {lastSubtitle?.message ? (
+                                    <p className="mt-1 text-xs leading-5 text-slate-500 line-clamp-2">
+                                        {lastSubtitle.message}
+                                    </p>
+                                ) : null}
+                            </div>
                         </div>
                     </div>
                 </section>

@@ -29,12 +29,10 @@ type AppliedTag = {
 };
 
 export async function aiAutoTag(bvids: string[]): Promise<{
-    taggedCount: number;
-    skippedCount: number;
-    appliedTags: AppliedTag[];
+    preview: AppliedTag[];
 }> {
     if (bvids.length === 0) {
-        return { taggedCount: 0, skippedCount: 0, appliedTags: [] };
+        return { preview: [] };
     }
 
     const [existingTags, allTaggedVideos, targetVideos] = await Promise.all([
@@ -184,60 +182,50 @@ export async function aiAutoTag(bvids: string[]): Promise<{
         }>;
     };
 
-    let taggedCount = 0;
-    let skippedCount = 0;
-    const appliedTags: AppliedTag[] = [];
+    const preview: AppliedTag[] = [];
 
-    const videoIdMap = new Map<string, string>();
+    for (const item of parsed.suggestions) {
+        if (!bvids.includes(item.bvid)) continue;
+
+        const { tagId, tagName } = item.suggestion;
+        if (!existingTags.some((t) => t.id === tagId)) continue;
+
+        preview.push({ bvid: item.bvid, tagId, tagName });
+    }
+
+    return { preview };
+}
+
+export async function applyAiTags(preview: AppliedTag[]) {
+    let taggedCount = 0;
+
+    const bvids = [...new Set(preview.map((p) => p.bvid))];
     const videoRecords = await prisma.video.findMany({
         where: { bvid: { in: bvids } },
         select: { id: true, bvid: true },
     });
+    const videoIdMap = new Map(videoRecords.map((v) => [v.bvid, v.id]));
 
-    for (const v of videoRecords) {
-        videoIdMap.set(v.bvid, v.id);
-    }
-
-    for (const item of parsed.suggestions) {
-        if (!bvids.includes(item.bvid)) {
-            continue;
-        }
-
+    for (const item of preview) {
         const videoId = videoIdMap.get(item.bvid);
-        if (!videoId) {
-            skippedCount += 1;
-            continue;
-        }
-
-        const { tagId } = item.suggestion;
-
-        if (!existingTags.some((t) => t.id === tagId)) {
-            skippedCount += 1;
-            continue;
-        }
+        if (!videoId) continue;
 
         await prisma.videoTag.upsert({
             where: {
                 videoId_tagId: {
                     videoId,
-                    tagId,
+                    tagId: item.tagId,
                 },
             },
             create: {
-                video: { connect: { bvid: item.bvid } },
-                tag: { connect: { id: tagId } },
+                video: { connect: { id: videoId } },
+                tag: { connect: { id: item.tagId } },
                 source: "ai",
             },
             update: {},
         });
-
         taggedCount += 1;
-        appliedTags.push({
-            bvid: item.bvid,
-            tagId,
-            tagName: item.suggestion.tagName,
-        });
     }
 
-    return { taggedCount, skippedCount, appliedTags };
+    return taggedCount;
 }

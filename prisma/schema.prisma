@@ -78,6 +78,7 @@ model VideoTag {
 
 model SyncRun {
   id           String   @id @default(cuid())
+  type         String   @default("sync")
   status       String
   keywords     Json
   pages        Int      @default(1)
