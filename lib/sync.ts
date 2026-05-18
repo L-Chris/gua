@@ -241,7 +241,6 @@ export async function syncVideoLibrary(
         let dedupedCount = 0;
         let createdCount = 0;
         let updatedCount = 0;
-        let skippedCount = 0;
         const subtitleCount = 0;
 
         for (const keyword of keywords) {
@@ -263,16 +262,6 @@ export async function syncVideoLibrary(
                     seenBvids.add(item.bvid);
                     dedupedCount += 1;
 
-                    const alreadyExists = await prisma.video.findUnique({
-                        where: { bvid: item.bvid },
-                        select: { bvid: true },
-                    });
-
-                    if (alreadyExists) {
-                        skippedCount += 1;
-                        continue;
-                    }
-
                     const result = await syncCandidateVideo(item.bvid, {
                         item,
                         keywords: new Set([keyword]),
@@ -293,7 +282,7 @@ export async function syncVideoLibrary(
                 createdCount,
                 fetchedCount,
                 finishedAt: new Date(),
-                message: `本次共处理 ${dedupedCount} 条符合标签条件的去重候选视频（新建 ${createdCount}，跳过 ${skippedCount}）。${options.timeStart ? ` 时间范围：${options.timeStart} ~ ${options.timeEnd || "至今"}` : ""}`,
+                message: `本次共处理 ${dedupedCount} 条符合标签条件的去重候选视频（新建 ${createdCount}，更新 ${updatedCount}）。${options.timeStart ? ` 时间范围：${options.timeStart} ~ ${options.timeEnd || "至今"}` : ""}`,
                 status: "success",
                 subtitleCount,
                 updatedCount,

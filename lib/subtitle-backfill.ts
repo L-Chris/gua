@@ -11,8 +11,56 @@ export type SubtitleBackfillSummary = {
     syncRunId: string | null;
 };
 
+export class VideoNotFoundError extends Error {
+    constructor(bvid: string) {
+        super(`视频 ${bvid} 未入库`);
+        this.name = "VideoNotFoundError";
+    }
+}
+
+export type SubtitleRefreshResult = {
+    bvid: string;
+    hasSubtitle: boolean;
+    subtitle: string | null;
+    subtitleLength: number;
+};
+
 function toJsonValue(value: unknown) {
     return JSON.parse(JSON.stringify(value ?? null));
+}
+
+export async function refreshVideoSubtitleByBvid(
+    bvid: string,
+): Promise<SubtitleRefreshResult> {
+    const normalizedBvid = bvid.trim();
+    const video = await prisma.video.findUnique({
+        where: { bvid: normalizedBvid },
+        select: { bvid: true },
+    });
+
+    if (!video) {
+        throw new VideoNotFoundError(normalizedBvid);
+    }
+
+    const subtitle = (await bilibiliQueue.add(() =>
+        getVideoSubtitle(normalizedBvid),
+    )) as string | null;
+
+    await prisma.video.update({
+        where: { bvid: normalizedBvid },
+        data: {
+            hasSubtitle: Boolean(subtitle),
+            lastSyncedAt: new Date(),
+            subtitle,
+        },
+    });
+
+    return {
+        bvid: normalizedBvid,
+        hasSubtitle: Boolean(subtitle),
+        subtitle,
+        subtitleLength: subtitle?.length ?? 0,
+    };
 }
 
 export async function backfillMissingSubtitles(maxVideos?: number): Promise<SubtitleBackfillSummary> {

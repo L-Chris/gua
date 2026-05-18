@@ -27,7 +27,7 @@ export type DashboardVideo = {
   reply: number;
   share: number;
   sourceKeywords: unknown;
-  subtitle: string | null;
+  subtitle?: string | null;
   tags: unknown;
   title: string;
   typeName: string | null;
@@ -273,7 +273,7 @@ export function buildDashboardInsights(videos: DashboardVideo[]): DashboardInsig
       publishAt: video.publishAt,
       reason: learningReason(video),
       sourceKeywords: toStringArray(video.sourceKeywords),
-      subtitleExcerpt: subtitleExcerpt(video.subtitle),
+      subtitleExcerpt: subtitleExcerpt(video.subtitle ?? null),
       tags: toStringArray(video.tags),
       title: video.cleanTitle || video.title,
     }));

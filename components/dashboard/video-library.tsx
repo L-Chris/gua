@@ -1,8 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { jsonStringArray, type DashboardVideo } from "@/lib/insights";
+import type { DashboardVideo } from "@/lib/insights";
+import type {
+    LibrarySort,
+    TagStatusFilter,
+    VideoLibraryPage,
+} from "@/lib/video-library-query";
 import { VideoTable } from "@/components/dashboard/video-table";
 import { aiAutoTag, applyAiTags } from "@/app/actions/ai-tag";
 
@@ -14,23 +19,17 @@ type CreatorFilter = {
     videoCount: number;
 };
 
-type LibrarySort = "playDesc" | "publishAtDesc";
-type TagStatusFilter = "all" | "ai" | "manual" | "untagged";
-
 type VideoLibraryProps = {
     creators: CreatorFilter[];
-    videos: DashboardVideo[];
+    initialPage: VideoLibraryPage;
     allTags: TagRecord[];
 };
 
-const pageSize = 20;
-
-function normalizeKeyword(value: string) {
-    return value.replace(/\s+/g, "").trim().toLowerCase();
-}
-
-export function VideoLibrary({ creators, videos: initialVideos, allTags }: VideoLibraryProps) {
-    const [videos, setVideos] = useState(initialVideos);
+export function VideoLibrary({ creators, initialPage, allTags }: VideoLibraryProps) {
+    const [videos, setVideos] = useState<DashboardVideo[]>(initialPage.videos);
+    const [totalCount, setTotalCount] = useState(initialPage.totalCount);
+    const [totalPages, setTotalPages] = useState(initialPage.totalPages);
+    const [loading, setLoading] = useState(false);
     const [creatorKeyword, setCreatorKeyword] = useState("");
     const [titleKeyword, setTitleKeyword] = useState("");
     const [tagKeyword, setTagKeyword] = useState("");
@@ -42,6 +41,7 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
     const [aiTagging, setAiTagging] = useState(false);
     const [singleAiTagBvid, setSingleAiTagBvid] = useState<string | null>(null);
     const [aiPreview, setAiPreview] = useState<{ bvid: string; tagId: string; tagName: string }[] | null>(null);
+    const initialFetchSkipped = useRef(false);
 
     const filteredCreators = useMemo(() => {
         const keyword = creatorKeyword.trim().toLowerCase();
@@ -55,71 +55,57 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
         );
     }, [creators, creatorKeyword]);
 
-    const filteredVideos = useMemo(() => {
-        const normalizedTitleKeyword = normalizeKeyword(titleKeyword);
-        const normalizedTagKeyword = normalizeKeyword(tagKeyword);
-
-        const matchedVideos = videos.filter((video) => {
-            if (selectedCreatorMid && video.creator.mid !== selectedCreatorMid) {
-                return false;
-            }
-
-            if (normalizedTitleKeyword) {
-                const cleanTitle = normalizeKeyword(video.cleanTitle);
-                const rawTitle = normalizeKeyword(video.title);
-                const bvid = normalizeKeyword(video.bvid);
-                const titleMatched =
-                    cleanTitle.includes(normalizedTitleKeyword) ||
-                    rawTitle.includes(normalizedTitleKeyword) ||
-                    bvid.includes(normalizedTitleKeyword);
-                if (!titleMatched) {
-                    return false;
-                }
-            }
-
-            if (normalizedTagKeyword) {
-                const sourceTags = jsonStringArray(video.tags);
-                const customTags = video.videoTags.map((vt) => vt.tag.name);
-                const allTagNames = [...sourceTags, ...customTags];
-                const tagMatched = allTagNames.some((tag) =>
-                    normalizeKeyword(tag).includes(normalizedTagKeyword),
-                );
-
-                if (!tagMatched) {
-                    return false;
-                }
-            }
-
-            if (tagStatus !== "all") {
-                if (tagStatus === "untagged" && video.videoTags.length > 0) {
-                    return false;
-                }
-                if (tagStatus === "ai" && !video.videoTags.some((vt) => vt.source === "ai")) {
-                    return false;
-                }
-                if (tagStatus === "manual" && !video.videoTags.some((vt) => vt.source === "manual")) {
-                    return false;
-                }
-            }
-
-            return true;
-        });
-
-        return [...matchedVideos].sort((left, right) => {
-            if (librarySort === "playDesc") {
-                return right.play - left.play;
-            }
-
-            return new Date(right.publishAt).getTime() - new Date(left.publishAt).getTime();
-        });
-    }, [videos, selectedCreatorMid, titleKeyword, tagKeyword, librarySort, tagStatus]);
-
-    const totalPages = Math.max(1, Math.ceil(filteredVideos.length / pageSize));
     const currentPage = Math.min(page, totalPages);
-    const pagedVideos = filteredVideos.slice(
-        (currentPage - 1) * pageSize,
-        currentPage * pageSize,
-    );
+
+    useEffect(() => {
+        if (!initialFetchSkipped.current) {
+            initialFetchSkipped.current = true;
+            return;
+        }
+
+        const controller = new AbortController();
+        const params = new URLSearchParams({
+            page: String(page),
+            sort: librarySort,
+            tagStatus,
+        });
+
+        if (selectedCreatorMid) params.set("creator", selectedCreatorMid);
+        if (titleKeyword.trim()) params.set("title", titleKeyword.trim());
+        if (tagKeyword.trim()) params.set("tag", tagKeyword.trim());
+
+        setLoading(true);
+        fetch(`/api/videos?${params.toString()}`, {
+            signal: controller.signal,
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error("视频分页加载失败");
+                }
+                return response.json() as Promise<VideoLibraryPage>;
+            })
+            .then((result) => {
+                setVideos(result.videos);
+                setTotalCount(result.totalCount);
+                setTotalPages(result.totalPages);
+                if (result.page !== page) {
+                    setPage(result.page);
+                }
+            })
+            .catch((error) => {
+                if (error instanceof DOMException && error.name === "AbortError") {
+                    return;
+                }
+                console.error("load video page failed", error);
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                }
+            });
+
+        return () => controller.abort();
+    }, [librarySort, page, selectedCreatorMid, tagKeyword, tagStatus, titleKeyword]);
 
     function handleCreatorChange(value: string) {
         setSelectedCreatorMid(value);
@@ -230,10 +216,11 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
                         </h2>
                     </div>
                     <p className="text-sm text-slate-400">
-                        当前显示第 {currentPage} / {totalPages} 页，{pagedVideos.length} / {filteredVideos.length} 条
+                        当前显示第 {currentPage} / {totalPages} 页，{videos.length} / {totalCount} 条
                         {titleKeyword.trim() || tagKeyword.trim()
                             ? ` · 标题过滤: ${titleKeyword.trim() || "无"} · 标签过滤: ${tagKeyword.trim() || "无"}`
                             : ""}
+                        {loading ? " · 加载中..." : ""}
                         {selectedBvids.size > 0 ? ` · 已选 ${selectedBvids.size} 个` : ""}
                     </p>
                     {selectedBvids.size > 0 ? (
@@ -309,7 +296,7 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
                 </div>
             </div>
 
-            <VideoTable videos={pagedVideos} allTags={allTags} onToggleTag={handleToggleTag} selectedBvids={selectedBvids} onToggleSelect={handleToggleSelect} onSingleAiTag={handleSingleAiTag} singleAiTagBvid={singleAiTagBvid} />
+            <VideoTable videos={videos} allTags={allTags} onToggleTag={handleToggleTag} selectedBvids={selectedBvids} onToggleSelect={handleToggleSelect} onSingleAiTag={handleSingleAiTag} singleAiTagBvid={singleAiTagBvid} />
 
             <div className="mt-5 flex flex-col items-center gap-2 text-sm text-slate-300">
                 <div className="flex items-center gap-3">
@@ -335,7 +322,7 @@ export function VideoLibrary({ creators, videos: initialVideos, allTags }: Video
                         下一页
                     </button>
                 </div>
-                <span className="text-slate-500">每页 {pageSize} 条</span>
+                <span className="text-slate-500">每页 {initialPage.pageSize} 条</span>
             </div>
 
             {aiPreview ? (

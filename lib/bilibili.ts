@@ -108,7 +108,7 @@ export async function getVideoInfo(bvid: string) {
 }
 
 export async function getVideoSubtitle(bvid: string) {
-  const data = await requestJson<SubtitleResponse>(`/api/video/subtitle/${encodeURIComponent(bvid)}`);
+  const data = await requestJson<SubtitleResponse>(`/api/video/subtitle/${encodeURIComponent(bvid)}?format=srt`);
 
   if (typeof data.subtitle === "string") {
     const cleaned = data.subtitle.trim();

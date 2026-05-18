@@ -24,6 +24,10 @@ import {
 } from "@/lib/format";
 import { buildDashboardInsights } from "@/lib/insights";
 import { prisma } from "@/lib/prisma";
+import {
+    dashboardVideoSelect,
+    getVideoLibraryPage,
+} from "@/lib/video-library-query";
 
 export const dynamic = "force-dynamic";
 
@@ -36,24 +40,10 @@ function syncStatusLabel(status: string | null | undefined) {
 }
 
 export default async function Home() {
-    const [videos, lastSync, lastSubtitle, allTags] = await Promise.all([
+    const [videos, lastSync, lastSubtitle, allTags, initialLibraryPage] = await Promise.all([
         prisma.video.findMany({
             orderBy: [{ publishAt: "desc" }],
-            include: {
-                creator: {
-                    select: {
-                        faceUrl: true,
-                        mid: true,
-                        name: true,
-                    },
-                },
-                videoTags: {
-                    select: {
-                        source: true,
-                        tag: { select: { id: true, name: true } },
-                    },
-                },
-            },
+            select: dashboardVideoSelect,
         }),
         prisma.syncRun.findFirst({
             where: { type: "sync" },
@@ -64,6 +54,7 @@ export default async function Home() {
             orderBy: { startedAt: "desc" },
         }),
         getAllTags(),
+        getVideoLibraryPage(),
     ]);
 
     const insights = buildDashboardInsights(videos);
@@ -233,7 +224,11 @@ export default async function Home() {
                 </section>
 
                 <section className="rounded-4xl border border-white/10 bg-white/5 p-6">
-                    <VideoLibrary creators={creatorFilters} videos={videos} allTags={allTags} />
+                    <VideoLibrary
+                        creators={creatorFilters}
+                        initialPage={initialLibraryPage}
+                        allTags={allTags}
+                    />
                 </section>
 
                 <section className="rounded-4xl border border-white/10 bg-white/5 p-6">
