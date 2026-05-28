@@ -1,5 +1,4 @@
 import Image from "next/image";
-import { ExternalLink } from "lucide-react";
 import type { LearningVideo } from "@/lib/insights";
 import {
     formatCompactNumber,
@@ -19,9 +18,12 @@ export function LearningVideoCards({ videos }: { videos: LearningVideo[] }) {
     return (
         <div className="space-y-3">
             {videos.map((video) => (
-                <article
+                <a
                     key={video.bvid}
-                    className="flex gap-3 rounded-3xl border border-white/10 bg-slate-950/50 p-3"
+                    href={`https://www.bilibili.com/video/${video.bvid}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex gap-3 rounded-3xl border border-white/10 bg-slate-950/50 p-3 transition hover:border-emerald-300/20 hover:bg-emerald-300/5 cursor-pointer"
                 >
                     <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-2xl bg-slate-900">
                         {video.coverUrl ? (
@@ -36,23 +38,13 @@ export function LearningVideoCards({ videos }: { videos: LearningVideo[] }) {
                     </div>
 
                     <div className="min-w-0 flex-1">
-                        <div className="flex items-start gap-3">
-                            <div className="min-w-0 flex-1">
-                                <h3 className="line-clamp-2 text-sm font-semibold leading-5 text-white">
-                                    {video.title}
-                                </h3>
-                                <p className="mt-1 truncate text-xs text-slate-400">
-                                    {video.creatorName} · {formatDateTime(video.publishAt, "yyyy/MM/dd")}
-                                </p>
-                            </div>
-                            <a
-                                href={`https://www.bilibili.com/video/${video.bvid}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-200 transition hover:text-white"
-                            >
-                                <ExternalLink className="h-3.5 w-3.5" />
-                            </a>
+                        <div className="min-w-0">
+                            <h3 className="line-clamp-2 text-sm font-semibold leading-5 text-white transition group-hover:text-emerald-200">
+                                {video.title}
+                            </h3>
+                            <p className="mt-1 truncate text-xs text-slate-400">
+                                {video.creatorName} · {formatDateTime(video.publishAt, "yyyy/MM/dd")}
+                            </p>
                         </div>
 
                         <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-300">
@@ -72,7 +64,7 @@ export function LearningVideoCards({ videos }: { videos: LearningVideo[] }) {
                             ))}
                         </div>
                     </div>
-                </article>
+                </a>
             ))}
         </div>
     );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { jsonStringArray, type DashboardVideo } from "@/lib/insights";
 import {
@@ -9,49 +9,10 @@ import {
     formatDurationFromSeconds,
     formatPercent,
 } from "@/lib/format";
-import { toggleVideoTag } from "@/app/actions/tags";
 
-type TagRecord = { id: string; name: string };
-
-export function VideoTable({
-    videos,
-    allTags,
-    onToggleTag,
-    selectedBvids,
-    onToggleSelect,
-    onSingleAiTag,
-    singleAiTagBvid,
-}: {
-    videos: DashboardVideo[];
-    allTags: TagRecord[];
-    onToggleTag: (bvid: string, tagId: string, tagName: string) => void;
-    selectedBvids: Set<string>;
-    onToggleSelect: (bvid: string) => void;
-    onSingleAiTag: (bvid: string) => void;
-    singleAiTagBvid: string | null;
-}) {
-    const [openBvid, setOpenBvid] = useState<string | null>(null);
-    const [pendingBvid, setPendingBvid] = useState<string | null>(null);
-
-    useEffect(() => {
-        if (!openBvid) {
-            return;
-        }
-
-        function handleClickOutside(event: MouseEvent) {
-            const target = event.target as HTMLElement | null;
-            const isInsideCurrentDropdown = target?.closest(
-                `[data-tag-dropdown-bvid="${openBvid}"]`,
-            );
-
-            if (!isInsideCurrentDropdown) {
-                setOpenBvid(null);
-            }
-        }
-
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [openBvid]);
+export function VideoTable({ videos }: { videos: DashboardVideo[] }) {
+    const [subtitleBvid, setSubtitleBvid] = useState<string | null>(null);
+    const [copied, setCopied] = useState(false);
 
     if (videos.length === 0) {
         return (
@@ -61,43 +22,14 @@ export function VideoTable({
         );
     }
 
-    async function handleToggleTag(bvid: string, tagId: string, tagName: string) {
-        setPendingBvid(bvid);
-        try {
-            await toggleVideoTag(bvid, tagId);
-            onToggleTag(bvid, tagId, tagName);
-            setOpenBvid(null);
-        } catch (error) {
-            console.error("toggleVideoTag failed", error);
-        } finally {
-            setPendingBvid(null);
-        }
-    }
-
     return (
         <div className="rounded-[28px] border border-white/10 bg-slate-950/50">
-            <div className="hidden grid-cols-[40px_minmax(0,2.8fr)_1fr_1fr_0.9fr] gap-4 border-b border-white/10 px-5 py-4 text-xs uppercase tracking-[0.18em] text-slate-500 lg:grid">
-                <span className="flex items-center justify-center">
-                    <input
-                        type="checkbox"
-                        checked={videos.length > 0 && videos.every((v) => selectedBvids.has(v.bvid))}
-                        onChange={() => {
-                            const allSelected = videos.every((v) => selectedBvids.has(v.bvid));
-                            for (const video of videos) {
-                                if (allSelected) {
-                                    onToggleSelect(video.bvid);
-                                } else if (!selectedBvids.has(video.bvid)) {
-                                    onToggleSelect(video.bvid);
-                                }
-                            }
-                        }}
-                        className="h-4 w-4 rounded border-slate-600 bg-slate-800 accent-emerald-400"
-                    />
-                </span>
+            <div className="hidden grid-cols-[minmax(0,2.8fr)_1fr_1fr_0.9fr_80px] gap-4 border-b border-white/10 px-5 py-4 text-xs uppercase tracking-[0.18em] text-slate-500 lg:grid">
                 <span>视频</span>
                 <span>播放 / 互动</span>
                 <span>标签</span>
                 <span>时间</span>
+                <span>操作</span>
             </div>
             <div>
                 {videos.map((video) => {
@@ -106,18 +38,15 @@ export function VideoTable({
                     return (
                         <div
                             key={video.bvid}
-                            className="grid gap-4 border-b border-white/8 px-5 py-4 last:border-b-0 lg:grid-cols-[40px_minmax(0,2.8fr)_1fr_1fr_0.9fr] lg:items-center"
+                            className="grid gap-4 border-b border-white/8 px-5 py-4 last:border-b-0 lg:grid-cols-[minmax(0,2.8fr)_1fr_1fr_0.9fr_80px] lg:items-center"
                         >
-                            <div className="flex items-center justify-center">
-                                <input
-                                    type="checkbox"
-                                    checked={selectedBvids.has(video.bvid)}
-                                    onChange={() => onToggleSelect(video.bvid)}
-                                    className="h-4 w-4 rounded border-slate-600 bg-slate-800 accent-emerald-400"
-                                />
-                            </div>
                             <div className="flex gap-4">
-                                <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-2xl bg-slate-900">
+                                <a
+                                    href={`https://www.bilibili.com/video/${video.bvid}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="relative h-20 w-32 shrink-0 overflow-hidden rounded-2xl bg-slate-900 cursor-pointer"
+                                >
                                     {video.coverUrl ? (
                                         <Image
                                             src={video.coverUrl}
@@ -127,7 +56,7 @@ export function VideoTable({
                                             className="object-cover"
                                         />
                                     ) : null}
-                                </div>
+                                </a>
                                 <div className="min-w-0">
                                     <a
                                         href={`https://www.bilibili.com/video/${video.bvid}`}
@@ -149,11 +78,6 @@ export function VideoTable({
                                                 {video.typeName}
                                             </span>
                                         ) : null}
-                                        {video.hasSubtitle ? (
-                                            <span className="rounded-full border border-emerald-300/15 bg-emerald-300/10 px-2.5 py-1 text-emerald-100">
-                                                AI 字幕
-                                            </span>
-                                        ) : null}
                                     </div>
                                 </div>
                             </div>
@@ -169,86 +93,22 @@ export function VideoTable({
                                 </p>
                             </div>
                             <div className="flex flex-wrap items-start gap-2 text-xs text-slate-300">
-                                <div className="flex flex-wrap gap-2">
-                                    {tags.map((tag) => (
-                                        <span
-                                            key={tag}
-                                            className="rounded-full border border-amber-300/15 bg-amber-300/10 px-2.5 py-1 text-amber-100"
-                                        >
-                                            #{tag}
-                                        </span>
-                                    ))}
-                                    {video.videoTags.length === 0 ? (
-                                        <button
-                                            type="button"
-                                            disabled={singleAiTagBvid === video.bvid}
-                                            onClick={() => onSingleAiTag(video.bvid)}
-                                            className="rounded-full border border-violet-300/20 bg-violet-300/10 px-2.5 py-1 text-xs text-violet-100 transition hover:bg-violet-300/20 disabled:opacity-50"
-                                        >
-                                            {singleAiTagBvid === video.bvid ? "AI 标注中..." : "✨ AI 标注"}
-                                        </button>
-                                    ) : null}
-                                    {video.videoTags.map((vt) => {
-                                        const isAi = vt.source === "ai";
-                                        return (
-                                            <button
-                                                key={vt.tag.id}
-                                                type="button"
-                                                disabled={pendingBvid === video.bvid}
-                                                onClick={() =>
-                                                    handleToggleTag(video.bvid, vt.tag.id, vt.tag.name)
-                                                }
-                                                className={`rounded-full border px-2.5 py-1 text-xs transition hover:opacity-80 ${
-                                                    isAi
-                                                        ? "border-pink-300/20 bg-pink-300/10 text-pink-100"
-                                                        : "border-cyan-300/20 bg-cyan-300/10 text-cyan-100"
-                                                }`}
-                                            >
-                                                {vt.tag.name} ×
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                <div className="relative" data-tag-dropdown-bvid={video.bvid}>
-                                    <button
-                                        type="button"
-                                        disabled={pendingBvid === video.bvid}
-                                        onClick={() =>
-                                            setOpenBvid(openBvid === video.bvid ? null : video.bvid)
-                                        }
-                                        className="rounded-full border border-dashed border-white/20 bg-white/5 px-2.5 py-1 text-slate-400 transition hover:border-white/30 hover:text-white"
+                                {tags.map((tag) => (
+                                    <span
+                                        key={tag}
+                                        className="rounded-full border border-amber-300/15 bg-amber-300/10 px-2.5 py-1 text-amber-100"
                                     >
-                                        + 标签
-                                    </button>
-                                    {openBvid === video.bvid ? (
-                                                <div className="absolute right-0 z-30 mt-1 max-h-48 w-44 overflow-auto rounded-2xl border border-white/10 bg-slate-900 p-2 shadow-xl">
-                                            {allTags
-                                                .filter(
-                                                    (tag) =>
-                                                        !video.videoTags.some((vt) => vt.tag.id === tag.id),
-                                                )
-                                                .map((tag) => (
-                                                    <button
-                                                        key={tag.id}
-                                                        type="button"
-                                                        onClick={() =>
-                                                            handleToggleTag(video.bvid, tag.id, tag.name)
-                                                        }
-                                                        className="block w-full rounded-xl px-3 py-2 text-left text-xs text-slate-300 transition hover:bg-white/10"
-                                                    >
-                                                        {tag.name}
-                                                    </button>
-                                                ))}
-                                            {allTags.filter(
-                                                (tag) => !video.videoTags.some((vt) => vt.tag.id === tag.id),
-                                            ).length === 0 ? (
-                                                <p className="px-3 py-2 text-xs text-slate-500">
-                                                    没有更多标签
-                                                </p>
-                                            ) : null}
-                                        </div>
-                                    ) : null}
-                                </div>
+                                        #{tag}
+                                    </span>
+                                ))}
+                                {video.videoTags.map((vt) => (
+                                    <span
+                                        key={vt.tag.id}
+                                        className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-2.5 py-1 text-cyan-100"
+                                    >
+                                        {vt.tag.name}
+                                    </span>
+                                ))}
                             </div>
                             <div className="text-sm text-slate-300">
                                 <p>
@@ -264,10 +124,76 @@ export function VideoTable({
                                     )}
                                 </p>
                             </div>
+                            <div className="flex items-center">
+                                {video.hasSubtitle ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSubtitleBvid(video.bvid);
+                                            setCopied(false);
+                                        }}
+                                        className="cursor-pointer rounded-full border border-emerald-300/15 bg-emerald-300/10 px-3 py-1.5 text-xs text-emerald-100 transition hover:bg-emerald-300/20"
+                                    >
+                                        字幕
+                                    </button>
+                                ) : null}
+                            </div>
                         </div>
                     );
                 })}
             </div>
+
+            {subtitleBvid ? (() => {
+                const video = videos.find((v) => v.bvid === subtitleBvid);
+                if (!video) return null;
+                const subtitle = video.subtitle ?? null;
+
+                return (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setSubtitleBvid(null)}>
+                        <div
+                            className="mx-4 flex w-full max-w-2xl flex-col rounded-3xl border border-white/10 bg-slate-900 shadow-2xl"
+                            style={{ maxHeight: "80vh" }}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-6 py-4">
+                                <div className="min-w-0">
+                                    <h3 className="text-lg font-semibold text-white">字幕内容</h3>
+                                    <p className="mt-1 truncate text-sm text-slate-400">{video.cleanTitle}</p>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (subtitle) {
+                                                navigator.clipboard.writeText(subtitle);
+                                                setCopied(true);
+                                                setTimeout(() => setCopied(false), 2000);
+                                            }
+                                        }}
+                                        className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-xs font-medium text-emerald-100 transition hover:bg-emerald-300/20"
+                                    >
+                                        {copied ? "已复制" : "复制字幕"}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSubtitleBvid(null)}
+                                        className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-slate-400 transition hover:text-white"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="overflow-auto p-6">
+                                {subtitle ? (
+                                    <pre className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-300">{subtitle}</pre>
+                                ) : (
+                                    <p className="text-sm text-slate-500">暂无字幕内容。</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            })() : null}
         </div>
     );
 }
