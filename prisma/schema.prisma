@@ -35,6 +35,7 @@ model Video {
   sourceKeywords Json?
   subtitle       String?  @db.LongText
   hasSubtitle    Boolean  @default(false)
+  hasPromoComment Boolean @default(false)
   play           Int      @default(0)
   like           Int      @default(0)
   favorite       Int      @default(0)

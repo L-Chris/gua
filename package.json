@@ -13,7 +13,8 @@
         "sync": "tsx scripts/sync-videos.ts",
         "subtitle:backfill:worker": "tsx scripts/subtitle-backfill-worker.ts",
         "video-detail:backfill:worker": "tsx scripts/video-detail-backfill-worker.ts",
-        "daily-sync:worker": "tsx scripts/daily-sync-worker.ts"
+        "daily-sync:worker": "tsx scripts/daily-sync-worker.ts",
+        "auto-comment:worker": "tsx scripts/auto-comment-worker.ts"
     },
     "dependencies": {
         "@prisma/client": "^6.19.3",

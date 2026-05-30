@@ -50,10 +50,7 @@ export default async function Home() {
                 <section className="overflow-hidden rounded-[36px] border border-white/10 bg-white/6 p-6 shadow-[0_24px_80px_rgba(15,23,42,0.25)] backdrop-blur md:p-8">
                     <div className="flex items-end justify-between gap-4">
                         <div>
-                            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-emerald-300">
-                                HuaQiang Idea Radar
-                            </p>
-                            <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-white md:text-6xl">
+                            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-white md:text-6xl">
                                 华强买瓜素材雷达
                             </h1>
                         </div>
