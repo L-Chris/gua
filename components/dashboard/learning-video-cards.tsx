@@ -23,6 +23,10 @@ export function LearningVideoCards({ videos }: { videos: LearningVideo[] }) {
                     href={`https://www.bilibili.com/video/${video.bvid}`}
                     target="_blank"
                     rel="noreferrer"
+                    data-umami-event="sample_open_bilibili"
+                    data-umami-event-module="learning_sample"
+                    data-umami-event-bvid={video.bvid}
+                    data-umami-event-creator={video.creatorName}
                     className="flex gap-3 rounded-3xl border border-white/10 bg-slate-950/50 p-3 transition hover:border-emerald-300/20 hover:bg-emerald-300/5 cursor-pointer"
                 >
                     <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-2xl bg-slate-900">

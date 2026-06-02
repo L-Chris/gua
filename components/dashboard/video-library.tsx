@@ -2,29 +2,27 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DashboardVideo } from "@/lib/insights";
+import type { CreatorFilter } from "@/lib/creator-filters-query";
 import type {
     LibrarySort,
     TagStatusFilter,
     VideoLibraryPage,
 } from "@/lib/video-library-query";
 import { VideoTable } from "@/components/dashboard/video-table";
-
-type CreatorFilter = {
-    mid: string;
-    name: string;
-    videoCount: number;
-};
+import { trackUmamiEvent } from "@/lib/umami-events";
 
 type VideoLibraryProps = {
-    creators: CreatorFilter[];
-    initialPage: VideoLibraryPage;
+    creators?: CreatorFilter[];
+    initialPage?: VideoLibraryPage;
 };
 
-export function VideoLibrary({ creators, initialPage }: VideoLibraryProps) {
-    const [videos, setVideos] = useState<DashboardVideo[]>(initialPage.videos);
-    const [totalCount, setTotalCount] = useState(initialPage.totalCount);
-    const [totalPages, setTotalPages] = useState(initialPage.totalPages);
-    const [loading, setLoading] = useState(false);
+export function VideoLibrary({ creators: initialCreators, initialPage }: VideoLibraryProps) {
+    const [creators, setCreators] = useState<CreatorFilter[]>(initialCreators ?? []);
+    const [videos, setVideos] = useState<DashboardVideo[]>(initialPage?.videos ?? []);
+    const [totalCount, setTotalCount] = useState(initialPage?.totalCount ?? 0);
+    const [totalPages, setTotalPages] = useState(initialPage?.totalPages ?? 1);
+    const [pageSize, setPageSize] = useState(initialPage?.pageSize ?? 20);
+    const [loading, setLoading] = useState(!initialPage);
     const [creatorKeyword, setCreatorKeyword] = useState("");
     const [titleKeyword, setTitleKeyword] = useState("");
     const [tagKeyword, setTagKeyword] = useState("");
@@ -32,7 +30,25 @@ export function VideoLibrary({ creators, initialPage }: VideoLibraryProps) {
     const [librarySort, setLibrarySort] = useState<LibrarySort>("playDesc");
     const [tagStatus, setTagStatus] = useState<TagStatusFilter>("all");
     const [page, setPage] = useState(1);
-    const initialFetchSkipped = useRef(false);
+    const initialFetchSkipped = useRef(Boolean(!initialPage));
+
+    useEffect(() => {
+        if (initialCreators) {
+            return;
+        }
+
+        fetch("/api/creators")
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error("UP 主列表加载失败");
+                }
+                return response.json() as Promise<CreatorFilter[]>;
+            })
+            .then(setCreators)
+            .catch((error) => {
+                console.error("load creator filters failed", error);
+            });
+    }, [initialCreators]);
 
     const filteredCreators = useMemo(() => {
         const keyword = creatorKeyword.trim().toLowerCase();
@@ -79,6 +95,7 @@ export function VideoLibrary({ creators, initialPage }: VideoLibraryProps) {
                 setVideos(result.videos);
                 setTotalCount(result.totalCount);
                 setTotalPages(result.totalPages);
+                setPageSize(result.pageSize);
                 if (result.page !== page) {
                     setPage(result.page);
                 }
@@ -99,18 +116,43 @@ export function VideoLibrary({ creators, initialPage }: VideoLibraryProps) {
     }, [librarySort, page, selectedCreatorMid, tagKeyword, tagStatus, titleKeyword]);
 
     function handleCreatorChange(value: string) {
+        trackUmamiEvent("library_filter_creator", {
+            creator_selected: Boolean(value),
+            module: "video_library",
+        });
         setSelectedCreatorMid(value);
         setPage(1);
     }
 
     function handleSortChange(value: string) {
-        setLibrarySort(value === "playDesc" ? "playDesc" : "publishAtDesc");
+        const sort = value === "playDesc" ? "playDesc" : "publishAtDesc";
+        trackUmamiEvent("library_change_sort", {
+            module: "video_library",
+            sort,
+        });
+        setLibrarySort(sort);
         setPage(1);
     }
 
     function handleTagStatusChange(value: string) {
+        trackUmamiEvent("library_filter_tag_status", {
+            module: "video_library",
+            tag_status: value,
+        });
         setTagStatus(value as TagStatusFilter);
         setPage(1);
+    }
+
+    function trackSearchEvent(eventName: string, value: string) {
+        const keyword = value.trim();
+        if (!keyword) {
+            return;
+        }
+
+        trackUmamiEvent(eventName, {
+            keyword_length: keyword.length,
+            module: "video_library",
+        });
     }
 
     return (
@@ -139,6 +181,7 @@ export function VideoLibrary({ creators, initialPage }: VideoLibraryProps) {
                         type="search"
                         value={creatorKeyword}
                         onChange={(event) => setCreatorKeyword(event.target.value)}
+                        onBlur={(event) => trackSearchEvent("library_search_creator", event.target.value)}
                         placeholder="搜索 UP 主"
                         className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-emerald-300/40"
                     />
@@ -149,6 +192,7 @@ export function VideoLibrary({ creators, initialPage }: VideoLibraryProps) {
                             setTitleKeyword(event.target.value);
                             setPage(1);
                         }}
+                        onBlur={(event) => trackSearchEvent("library_search_title", event.target.value)}
                         placeholder="按标题过滤"
                         className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-emerald-300/40"
                     />
@@ -159,6 +203,7 @@ export function VideoLibrary({ creators, initialPage }: VideoLibraryProps) {
                             setTagKeyword(event.target.value);
                             setPage(1);
                         }}
+                        onBlur={(event) => trackSearchEvent("library_search_tag", event.target.value)}
                         placeholder="按标签过滤"
                         className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-emerald-300/40"
                     />
@@ -201,7 +246,14 @@ export function VideoLibrary({ creators, initialPage }: VideoLibraryProps) {
                     <button
                         type="button"
                         disabled={currentPage <= 1}
-                        onClick={() => setPage((value) => Math.max(value - 1, 1))}
+                        onClick={() => {
+                            trackUmamiEvent("library_paginate", {
+                                direction: "previous",
+                                module: "video_library",
+                                page: currentPage,
+                            });
+                            setPage((value) => Math.max(value - 1, 1));
+                        }}
                         className="rounded-full border border-white/10 bg-white/5 px-4 py-2 transition hover:text-white disabled:border-white/5 disabled:bg-white/2 disabled:text-slate-600"
                     >
                         上一页
@@ -214,13 +266,20 @@ export function VideoLibrary({ creators, initialPage }: VideoLibraryProps) {
                     <button
                         type="button"
                         disabled={currentPage >= totalPages}
-                        onClick={() => setPage((value) => Math.min(value + 1, totalPages))}
+                        onClick={() => {
+                            trackUmamiEvent("library_paginate", {
+                                direction: "next",
+                                module: "video_library",
+                                page: currentPage,
+                            });
+                            setPage((value) => Math.min(value + 1, totalPages));
+                        }}
                         className="rounded-full border border-white/10 bg-white/5 px-4 py-2 transition hover:text-white disabled:border-white/5 disabled:bg-white/2 disabled:text-slate-600"
                     >
                         下一页
                     </button>
                 </div>
-                <span className="text-slate-500">每页 {initialPage.pageSize} 条</span>
+                <span className="text-slate-500">每页 {pageSize} 条</span>
             </div>
 
         </div>

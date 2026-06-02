@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import type { ReactNode } from "react";
 import "./globals.css";
 
@@ -12,6 +13,8 @@ const geistMono = Geist_Mono({
     variable: "--font-geist-mono",
     subsets: ["latin"],
 });
+
+const umamiWebsiteId = "c354bb50-fba3-4ad6-8681-4f77ffd11802";
 
 export const metadata: Metadata = {
     title: "华强买瓜素材雷达",
@@ -33,6 +36,12 @@ export default function RootLayout({
         >
             <body className="min-h-full bg-background text-foreground">
                 {children}
+                <Script
+                    src="https://bi.rethinkos.com/script.js"
+                    data-website-id={umamiWebsiteId}
+                    data-performance="true"
+                    strategy="afterInteractive"
+                />
             </body>
         </html>
     );

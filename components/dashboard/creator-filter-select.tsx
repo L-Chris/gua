@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { trackUmamiEvent } from "@/lib/umami-events";
 
 type CreatorFilter = {
     mid: string;
@@ -36,6 +37,12 @@ export function CreatorFilterSelect({
     }, [creators, keyword]);
 
     function pushFilters(creatorMid: string | undefined, librarySort: "publishAtDesc" | "playDesc") {
+        trackUmamiEvent("dashboard_filter_creator", {
+            creator_selected: Boolean(creatorMid),
+            module: "dashboard_filters",
+            sort: librarySort,
+        });
+
         const params = new URLSearchParams();
 
         if (creatorMid) {
@@ -56,6 +63,15 @@ export function CreatorFilterSelect({
                 type="search"
                 value={keyword}
                 onChange={(event) => setKeyword(event.target.value)}
+                onBlur={(event) => {
+                    const value = event.target.value.trim();
+                    if (value) {
+                        trackUmamiEvent("dashboard_search_creator", {
+                            keyword_length: value.length,
+                            module: "dashboard_filters",
+                        });
+                    }
+                }}
                 placeholder="搜索 UP 主"
                 className="rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-emerald-300/40"
             />

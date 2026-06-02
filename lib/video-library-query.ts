@@ -46,7 +46,6 @@ export const dashboardVideoSelect = {
     reply: true,
     share: true,
     sourceKeywords: true,
-    subtitle: true,
     tags: true,
     title: true,
     typeName: true,

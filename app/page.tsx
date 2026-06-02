@@ -6,44 +6,15 @@ import {
 } from "lucide-react";
 import { DurationDistributionChart } from "@/components/charts/duration-distribution-chart";
 import { UploadTrendChart } from "@/components/charts/upload-trend-chart";
+import { DeferredVideoLibrary } from "@/components/dashboard/deferred-video-library";
 import { LearningVideoCards } from "@/components/dashboard/learning-video-cards";
 import { TopCreatorList } from "@/components/dashboard/top-creator-list";
-import { VideoLibrary } from "@/components/dashboard/video-library";
-import { buildDashboardInsights } from "@/lib/insights";
-import { prisma } from "@/lib/prisma";
-import {
-    dashboardVideoSelect,
-    getVideoLibraryPage,
-} from "@/lib/video-library-query";
+import { getDashboardInsights } from "@/lib/dashboard-insights-query";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-    const [videos, initialLibraryPage] = await Promise.all([
-        prisma.video.findMany({
-            orderBy: [{ publishAt: "desc" }],
-            select: dashboardVideoSelect,
-        }),
-        getVideoLibraryPage(),
-    ]);
-
-    const insights = buildDashboardInsights(videos);
-    const creatorFilters = [...videos.reduce((map, video) => {
-        const current = map.get(video.creator.mid);
-        if (current) {
-            current.videoCount += 1;
-        } else {
-            map.set(video.creator.mid, {
-                faceUrl: video.creator.faceUrl,
-                mid: video.creator.mid,
-                name: video.creator.name,
-                videoCount: 1,
-            });
-        }
-        return map;
-    }, new Map<string, { faceUrl: string | null; mid: string; name: string; videoCount: number }>()).values()].sort(
-        (left, right) => right.videoCount - left.videoCount || left.name.localeCompare(right.name),
-    );
+    const insights = await getDashboardInsights();
     return (
         <main className="px-4 py-6 md:px-8 lg:px-10 lg:py-8">
             <div className="mx-auto flex max-w-7xl flex-col gap-6">
@@ -135,10 +106,7 @@ export default async function Home() {
                 </section>
 
                 <section className="rounded-4xl border border-white/10 bg-white/5 p-6">
-                    <VideoLibrary
-                        creators={creatorFilters}
-                        initialPage={initialLibraryPage}
-                    />
+                    <DeferredVideoLibrary />
                 </section>
             </div>
         </main>

@@ -30,6 +30,11 @@ export function TopCreatorList({ creators }: { creators: CreatorSummary[] }) {
                         href={`https://space.bilibili.com/${creator.mid}`}
                         target="_blank"
                         rel="noopener noreferrer"
+                        data-umami-event="creator_open_bilibili"
+                        data-umami-event-module="creator"
+                        data-umami-event-rank={String(index + 1)}
+                        data-umami-event-mid={creator.mid}
+                        data-umami-event-video-count={String(creator.videoCount)}
                         className="flex items-center gap-4 flex-1 min-w-0 hover:opacity-80 transition-opacity"
                     >
                         {creator.faceUrl ? (

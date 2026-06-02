@@ -9,9 +9,12 @@ import {
     formatDurationFromSeconds,
     formatPercent,
 } from "@/lib/format";
+import { trackUmamiEvent } from "@/lib/umami-events";
 
 export function VideoTable({ videos }: { videos: DashboardVideo[] }) {
     const [subtitleBvid, setSubtitleBvid] = useState<string | null>(null);
+    const [subtitleByBvid, setSubtitleByBvid] = useState<Record<string, string | null>>({});
+    const [subtitleLoadingBvid, setSubtitleLoadingBvid] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
 
     if (videos.length === 0) {
@@ -45,6 +48,11 @@ export function VideoTable({ videos }: { videos: DashboardVideo[] }) {
                                     href={`https://www.bilibili.com/video/${video.bvid}`}
                                     target="_blank"
                                     rel="noreferrer"
+                                    data-umami-event="video_open_bilibili"
+                                    data-umami-event-module="video_table"
+                                    data-umami-event-source="cover"
+                                    data-umami-event-bvid={video.bvid}
+                                    data-umami-event-type={video.typeName ?? ""}
                                     className="relative h-20 w-32 shrink-0 overflow-hidden rounded-2xl bg-slate-900 cursor-pointer"
                                 >
                                     {video.coverUrl ? (
@@ -62,6 +70,11 @@ export function VideoTable({ videos }: { videos: DashboardVideo[] }) {
                                         href={`https://www.bilibili.com/video/${video.bvid}`}
                                         target="_blank"
                                         rel="noreferrer"
+                                        data-umami-event="video_open_bilibili"
+                                        data-umami-event-module="video_table"
+                                        data-umami-event-source="title"
+                                        data-umami-event-bvid={video.bvid}
+                                        data-umami-event-type={video.typeName ?? ""}
                                         className="line-clamp-2 text-base font-semibold text-white transition hover:text-emerald-200"
                                     >
                                         {video.cleanTitle}
@@ -128,9 +141,35 @@ export function VideoTable({ videos }: { videos: DashboardVideo[] }) {
                                 {video.hasSubtitle ? (
                                     <button
                                         type="button"
-                                        onClick={() => {
+                                        onClick={async () => {
+                                            trackUmamiEvent("video_open_subtitle", {
+                                                bvid: video.bvid,
+                                                module: "video_table",
+                                            });
                                             setSubtitleBvid(video.bvid);
                                             setCopied(false);
+                                            if (!(video.bvid in subtitleByBvid)) {
+                                                setSubtitleLoadingBvid(video.bvid);
+                                                try {
+                                                    const response = await fetch(`/api/videos/${encodeURIComponent(video.bvid)}/subtitle`);
+                                                    if (!response.ok) {
+                                                        throw new Error("字幕加载失败");
+                                                    }
+                                                    const result = await response.json() as { subtitle: string | null };
+                                                    setSubtitleByBvid((current) => ({
+                                                        ...current,
+                                                        [video.bvid]: result.subtitle,
+                                                    }));
+                                                } catch (error) {
+                                                    console.error("load subtitle failed", error);
+                                                    setSubtitleByBvid((current) => ({
+                                                        ...current,
+                                                        [video.bvid]: null,
+                                                    }));
+                                                } finally {
+                                                    setSubtitleLoadingBvid(null);
+                                                }
+                                            }
                                         }}
                                         className="cursor-pointer rounded-full border border-emerald-300/15 bg-emerald-300/10 px-3 py-1.5 text-xs text-emerald-100 transition hover:bg-emerald-300/20"
                                     >
@@ -146,7 +185,8 @@ export function VideoTable({ videos }: { videos: DashboardVideo[] }) {
             {subtitleBvid ? (() => {
                 const video = videos.find((v) => v.bvid === subtitleBvid);
                 if (!video) return null;
-                const subtitle = video.subtitle ?? null;
+                const subtitle = subtitleByBvid[video.bvid] ?? null;
+                const isSubtitleLoading = subtitleLoadingBvid === video.bvid;
 
                 return (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setSubtitleBvid(null)}>
@@ -166,6 +206,10 @@ export function VideoTable({ videos }: { videos: DashboardVideo[] }) {
                                         onClick={() => {
                                             if (subtitle) {
                                                 navigator.clipboard.writeText(subtitle);
+                                                trackUmamiEvent("video_copy_subtitle", {
+                                                    bvid: video.bvid,
+                                                    module: "subtitle_modal",
+                                                });
                                                 setCopied(true);
                                                 setTimeout(() => setCopied(false), 2000);
                                             }
@@ -184,7 +228,9 @@ export function VideoTable({ videos }: { videos: DashboardVideo[] }) {
                                 </div>
                             </div>
                             <div className="overflow-auto p-6">
-                                {subtitle ? (
+                                {isSubtitleLoading ? (
+                                    <p className="text-sm text-slate-400">字幕加载中...</p>
+                                ) : subtitle ? (
                                     <pre className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-300">{subtitle}</pre>
                                 ) : (
                                     <p className="text-sm text-slate-500">暂无字幕内容。</p>
